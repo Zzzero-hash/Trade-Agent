@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Documentation Sync",
+  "description": "Listens to Python source files and configuration changes to automatically update project documentation",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*.py",
+      "tests/**/*.py",
+      "config/*.yaml",
+      "requirements.txt"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Source code or configuration files have been modified. Please review the changes and update the README.md file to reflect any new features, API changes, configuration updates, or usage instructions. Ensure the documentation stays current with the codebase."
+  }
+}

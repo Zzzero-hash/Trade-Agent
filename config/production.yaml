@@ -1,0 +1,72 @@
+environment: production
+debug: false
+
+database:
+  host: ${DB_HOST}
+  port: ${DB_PORT}
+  database: ${DB_NAME}
+  username: ${DB_USER}
+  password: ${DB_PASSWORD}
+  pool_size: 20
+  max_overflow: 40
+
+redis:
+  host: ${REDIS_HOST}
+  port: ${REDIS_PORT}
+  db: 0
+  password: ${REDIS_PASSWORD}
+  max_connections: 20
+
+ml:
+  model_registry_path: "/app/models/"
+  feature_store_path: "/app/features/"
+  batch_size: 64
+  learning_rate: 0.0001
+  epochs: 200
+  validation_split: 0.2
+  random_seed: 42
+  device: "cuda"
+
+ray:
+  address: ${RAY_ADDRESS}
+  num_cpus: 8
+  num_gpus: 2
+  object_store_memory: 2000000000  # 2GB
+
+logging:
+  level: "WARNING"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_path: "/app/logs/app.log"
+  max_file_size: 52428800  # 50MB
+  backup_count: 10
+
+monitoring:
+  enabled: true
+  metrics_port: 8000
+  health_check_interval: 15
+  alert_webhook_url: ${ALERT_WEBHOOK_URL}
+
+api:
+  host: "0.0.0.0"
+  port: 8080
+  debug: false
+  cors_origins: ["https://yourdomain.com"]
+  rate_limit: "1000/minute"
+  jwt_secret: ${JWT_SECRET}
+  jwt_expiry_hours: 8
+
+exchanges:
+  robinhood:
+    sandbox: false
+    rate_limit: 300
+    timeout: 10
+  
+  oanda:
+    sandbox: false
+    rate_limit: 300
+    timeout: 10
+  
+  coinbase:
+    sandbox: false
+    rate_limit: 300
+    timeout: 10

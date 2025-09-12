@@ -1,0 +1,72 @@
+environment: development
+debug: true
+
+database:
+  host: localhost
+  port: 5432
+  database: trading_platform_dev
+  username: postgres
+  password: ""
+  pool_size: 10
+  max_overflow: 20
+
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  password: null
+  max_connections: 10
+
+ml:
+  model_registry_path: "models/"
+  feature_store_path: "features/"
+  batch_size: 32
+  learning_rate: 0.001
+  epochs: 100
+  validation_split: 0.2
+  random_seed: 42
+  device: "cpu"
+
+ray:
+  address: null  # Local Ray cluster
+  num_cpus: null
+  num_gpus: null
+  object_store_memory: null
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_path: "logs/app.log"
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+
+monitoring:
+  enabled: true
+  metrics_port: 8000
+  health_check_interval: 30
+  alert_webhook_url: null
+
+api:
+  host: "0.0.0.0"
+  port: 8080
+  debug: true
+  cors_origins: ["*"]
+  rate_limit: "100/minute"
+  jwt_secret: "dev-secret-key-change-in-production"
+  jwt_expiry_hours: 24
+
+exchanges:
+  robinhood:
+    sandbox: true
+    rate_limit: 100
+    timeout: 30
+  
+  oanda:
+    sandbox: true
+    rate_limit: 100
+    timeout: 30
+  
+  coinbase:
+    sandbox: true
+    rate_limit: 100
+    timeout: 30
