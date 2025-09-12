@@ -60,6 +60,7 @@ The `ExchangeConnector` abstract base class defines the interface for all exchan
 - **Coinbase**: Cryptocurrencies and perpetual futures
 
 Key methods:
+
 - `get_historical_data()`: Retrieve historical market data
 - `get_real_time_data()`: Stream real-time market data
 - `place_order()`: Execute trading orders
@@ -93,6 +94,7 @@ The platform now includes three fully implemented exchange connectors:
 The `CoinbaseConnector` provides comprehensive cryptocurrency trading capabilities:
 
 **Key Features:**
+
 - **24/7 Market Access**: Cryptocurrency markets never close
 - **WebSocket Streaming**: Real-time price feeds via WebSocket connections
 - **Comprehensive Order Types**: Market, limit, stop orders with crypto-specific parameters
@@ -101,6 +103,7 @@ The `CoinbaseConnector` provides comprehensive cryptocurrency trading capabiliti
 - **Sandbox Environment**: Full testing capabilities in Coinbase Pro sandbox
 
 **Crypto-Specific Methods:**
+
 - `get_current_prices()`: Real-time pricing for multiple crypto pairs
 - `get_order_book()`: Market depth and liquidity information
 - `get_trade_history()`: Recent trade execution data
@@ -108,6 +111,7 @@ The `CoinbaseConnector` provides comprehensive cryptocurrency trading capabiliti
 - `get_margin_profile()`: Account margin and leverage information
 
 **Usage Example:**
+
 ```python
 from src.exchanges.coinbase import CoinbaseConnector
 
@@ -132,12 +136,14 @@ The platform now includes a sophisticated data aggregation system that normalize
 ### Key Features
 
 **Real-time Data Aggregation:**
+
 - Unified data streams from Robinhood, OANDA, and Coinbase
 - Timestamp synchronization across exchanges
 - Intelligent data quality validation and anomaly detection
 - Confidence scoring for aggregated data points
 
 **Data Quality Management:**
+
 - **Price Validation**: Ensures proper OHLC relationships and detects anomalies
 - **Volume Analysis**: Identifies unusual volume spikes and patterns
 - **Timestamp Validation**: Prevents stale or future-dated data
@@ -145,6 +151,7 @@ The platform now includes a sophisticated data aggregation system that normalize
 - **Quality Reporting**: Comprehensive data quality metrics and alerts
 
 **Aggregation Strategies:**
+
 - **Price Aggregation**: Median-based price consolidation (robust to outliers)
 - **Volume Aggregation**: Summation across exchanges
 - **Confidence Scoring**: Multi-factor confidence assessment
@@ -177,12 +184,14 @@ async for aggregated_data in aggregator.start_aggregation(symbols):
 ### Data Quality Features
 
 **Validation Types:**
+
 - **Basic Constraints**: Price relationships, negative values, data completeness
 - **Statistical Anomalies**: Z-score analysis for price and volume outliers
 - **Temporal Validation**: Timestamp consistency and staleness detection
 - **Cross-Exchange Consistency**: Price deviation analysis across sources
 
 **Quality Reporting:**
+
 ```python
 # Get data quality summary
 quality_report = aggregator.get_data_quality_summary(hours=24)
@@ -210,6 +219,7 @@ df = await aggregator.get_historical_aggregated_data(
 With all three exchange connectors and data aggregation now implemented, the platform supports:
 
 ### Asset Classes
+
 - **Stocks & ETFs**: US equities via Robinhood
 - **Options**: Equity options via Robinhood  
 - **Forex**: 50+ currency pairs via OANDA
@@ -217,12 +227,14 @@ With all three exchange connectors and data aggregation now implemented, the pla
 - **Futures**: Perpetual crypto futures via Coinbase
 
 ### Order Types
+
 - **Market Orders**: Immediate execution at current market price
 - **Limit Orders**: Execute at specified price or better
 - **Stop Orders**: Stop-loss and stop-limit orders
 - **Margin Orders**: Leveraged positions (Forex & Crypto)
 
 ### Market Data
+
 - **Real-time Streaming**: WebSocket feeds from all exchanges
 - **Historical Data**: OHLCV data with multiple timeframes
 - **Market Depth**: Order book data (Coinbase & OANDA)
@@ -230,6 +242,7 @@ With all three exchange connectors and data aggregation now implemented, the pla
 - **Unified Aggregation**: Cross-exchange data normalization and validation
 
 ### Account Management
+
 - **Multi-Exchange**: Unified interface across all platforms
 - **Position Tracking**: Real-time P&L and exposure monitoring
 - **Risk Management**: Automated position sizing and stop-losses
@@ -273,11 +286,13 @@ The platform uses a hierarchical configuration system:
 ## Getting Started
 
 1. **Install Dependencies**:
+
    ```bash
    pip install -r requirements.txt
    ```
 
 2. **Configure Environment**:
+
    ```bash
    cp config/settings.yaml config/local.yaml
    # Edit config/local.yaml with your settings
@@ -285,6 +300,7 @@ The platform uses a hierarchical configuration system:
    ```
 
 3. **Set API Keys** (optional for development):
+
    ```bash
    export ROBINHOOD_API_KEY=your_key
    export OANDA_API_KEY=your_key  
@@ -292,6 +308,7 @@ The platform uses a hierarchical configuration system:
    ```
 
 4. **Run Application**:
+
    ```bash
    python src/main.py
    ```
@@ -331,6 +348,7 @@ market_data = MarketData(
 ```
 
 **Key Features:**
+
 - **Symbol Validation**: Automatically converts to uppercase and validates format
 - **Price Relationship Validation**: Ensures high ≥ low, high ≥ open/close, low ≤ open/close
 - **Timestamp Validation**: Prevents future timestamps
@@ -348,12 +366,14 @@ market_data = MarketData(
 The models include comprehensive validation to ensure data quality:
 
 **MarketData Validation:**
+
 - Price relationships (high ≥ low, etc.)
 - Symbol format and normalization
 - Timestamp validation (no future dates)
 - Positive price and non-negative volume constraints
 
 **Error Handling:**
+
 ```python
 # This will raise a validation error
 try:
@@ -377,6 +397,9 @@ python examples/data_models_demo.py
 
 # Data aggregation system demonstration
 python examples/data_aggregation_demo.py
+
+# Feature engineering pipeline demonstration
+python examples/feature_engineering_demo.py
 ```
 
 ## Testing
@@ -407,6 +430,18 @@ The platform includes comprehensive test coverage for all major components:
   - Confidence scoring and aggregation strategies
   - Historical data aggregation across exchanges
 
+### Feature Engineering Tests
+
+- **`tests/test_technical_indicators.py`**: Technical indicator calculations and validation ✅
+  - Complete indicator set testing (SMA, EMA, RSI, MACD, Bollinger Bands, ATR, OBV, VWAP)
+  - Edge case handling (insufficient data, NaN values, zero volumes)
+  - Mathematical accuracy validation against known formulas
+- **`tests/test_advanced_features.py`**: Advanced feature transformers with edge cases ✅
+  - Wavelet decomposition with multiple wavelets and levels
+  - Fourier transform frequency analysis
+  - Fractal dimension and Hurst exponent calculations
+  - Cross-asset correlation and momentum features
+
 ### Running Tests
 
 ```bash
@@ -421,9 +456,122 @@ pytest tests/test_robinhood_connector.py
 # Run data aggregation tests
 pytest tests/test_data_aggregator.py
 
+# Run feature engineering tests
+pytest tests/test_technical_indicators.py
+pytest tests/test_advanced_features.py
+
 # Run with coverage
 pytest tests/ --cov=src --cov-report=html
 ```
+
+## Feature Engineering Pipeline ✅ **Complete**
+
+The platform now includes a comprehensive feature engineering system with multiple transformer classes:
+
+### Technical Indicators ✅ **Complete**
+
+The `TechnicalIndicators` transformer provides a complete set of market indicators:
+
+**Price-Based Indicators:**
+
+- **SMA (Simple Moving Average)**: 20-period moving average for trend identification
+- **EMA (Exponential Moving Average)**: 12-period exponential average for responsive trend tracking
+- **RSI (Relative Strength Index)**: 14-period momentum oscillator (0-100 scale)
+- **MACD (Moving Average Convergence Divergence)**:
+  - MACD Line: 12-EMA minus 26-EMA
+  - Signal Line: 9-period EMA of MACD line
+  - Histogram: MACD line minus signal line
+- **Bollinger Bands**: 20-period statistical bands with:
+  - Upper Band: SMA + (2 × Standard Deviation)
+  - Lower Band: SMA - (2 × Standard Deviation)
+  - Band Width: Normalized width indicator
+  - Band Position: Price position within bands (0-1 scale)
+
+**Volume-Based Indicators:**
+
+- **OBV (On-Balance Volume)**: Cumulative volume flow based on price direction
+- **VWAP (Volume Weighted Average Price)**: Intraday price benchmark weighted by volume
+
+**Volatility Indicators:**
+
+- **ATR (Average True Range)**: 14-period true range average for volatility measurement
+
+**Generated Feature Names:**
+The technical indicators generate the following feature columns:
+
+- `sma_20`, `ema_12`, `rsi_14`, `atr_14`, `obv`, `vwap`
+- `macd_line`, `macd_signal`, `macd_histogram` (3 features from MACD)
+- `bb_upper`, `bb_lower`, `bb_width`, `bb_position` (4 features from Bollinger Bands)
+
+Total: **13 technical indicator features** per data point
+
+### Advanced Feature Transformers ✅ **Complete**
+
+**WaveletTransform:**
+
+- Multi-resolution analysis using Daubechies wavelets
+- Decomposes price series into different frequency components
+- Configurable decomposition levels and wavelet types
+
+**FourierFeatures:**
+
+- Frequency domain analysis of price movements
+- Extracts magnitude and phase components
+- Rolling window FFT for time-varying spectral analysis
+
+**FractalFeatures:**
+
+- Hurst exponent calculation for trend persistence measurement
+- Fractal dimension estimation using box-counting method
+- Market regime identification through fractal analysis
+
+**CrossAssetFeatures:**
+
+- Price-volume correlation analysis
+- Returns autocorrelation for momentum detection
+- Volume momentum and flow indicators
+- Cross-exchange price consistency metrics
+
+### Usage Example
+
+```python
+from src.ml.feature_engineering import (
+    FeatureEngineer, TechnicalIndicators, WaveletTransform, 
+    FourierFeatures, FractalFeatures
+)
+
+# Create feature engineering pipeline
+engineer = FeatureEngineer()
+
+# Add complete technical indicators set
+tech_indicators = TechnicalIndicators(config={
+    "indicators": [
+        "sma_20", "ema_12", "rsi_14", "macd", "bollinger_bands", 
+        "atr_14", "obv", "vwap"
+    ]
+})
+engineer.add_transformer(tech_indicators)
+
+# Add advanced transformers
+engineer.add_transformer(WaveletTransform(config={"levels": 3}))
+engineer.add_transformer(FourierFeatures(config={"n_components": 10}))
+engineer.add_transformer(FractalFeatures(config={"window_size": 50}))
+
+# Process market data
+features = engineer.fit_transform(market_data_df)
+feature_names = engineer.get_feature_names()
+
+print(f"Generated {features.shape[1]} features from {len(feature_names)} transformers")
+print("Technical indicators:", [name for name in feature_names if any(
+    indicator in name for indicator in ["sma", "ema", "rsi", "macd", "bb", "atr", "obv", "vwap"]
+)])
+```
+
+### Feature Engineering Tests ✅ **Complete**
+
+- **`tests/test_technical_indicators.py`**: Comprehensive technical indicator validation
+- **`tests/test_advanced_features.py`**: Advanced transformer testing with edge cases
+- **`examples/feature_engineering_demo.py`**: Complete usage demonstration
 
 ## Next Steps
 
@@ -432,7 +580,7 @@ This foundation provides the core structure and interfaces. The next tasks will 
 1. ~~Data models and validation~~ ✅ **Complete**
 2. ~~Exchange connector implementations~~ ✅ **Complete**
 3. ~~Unified data aggregation system~~ ✅ **Complete**
-4. Feature engineering pipeline
+4. ~~Feature engineering pipeline~~ ✅ **Complete**
 5. CNN+LSTM model architecture
 6. Reinforcement learning agents
 7. Trading decision engine
@@ -443,11 +591,13 @@ This foundation provides the core structure and interfaces. The next tasks will 
 This implementation addresses the following requirements:
 
 ### Data Models & Validation ✅ **Complete**
+
 - **Requirement 4.4**: Data quality validation and anomaly detection ✅ **Complete**
 - **Requirement 4.7**: Data integrity validation before model training ✅ **Complete**
 - **Requirement 10.7**: Consistent timestamps and data formats ✅ **Complete**
 
 ### Exchange Integration ✅ **Complete**
+
 - **Requirement 10.1**: Robinhood integration for stocks, ETFs, indices, and options ✅ **Complete**
 - **Requirement 10.2**: OANDA integration for forex trading with real-time data ✅ **Complete**
 - **Requirement 10.3**: Coinbase integration for cryptocurrency and perpetual futures ✅ **Complete**
@@ -458,12 +608,20 @@ This implementation addresses the following requirements:
 - **Requirement 10.9**: Failover mechanisms and retry logic ✅ **Complete**
 
 ### Data Aggregation System ✅ **Complete**
+
 - **Requirement 4.1**: Multi-source data ingestion and normalization ✅ **Complete**
 - **Requirement 4.4**: Data quality validation and anomaly detection ✅ **Complete**
 - **Requirement 10.4**: Unified data aggregation from all exchanges ✅ **Complete**
 - **Requirement 10.7**: Data synchronization and consistent timestamps ✅ **Complete**
 
+### Feature Engineering Pipeline ✅ **Complete**
+
+- **Requirement 4.2**: Technical indicators and statistical features ✅ **Complete**
+- **Requirement 4.3**: Rolling windows and lag features for time series ✅ **Complete**
+- **Requirement 4.5**: Custom feature engineering pipelines ✅ **Complete**
+
 ### ML/AI Infrastructure (In Progress)
+
 - **Requirement 1.1**: CNN+LSTM models for feature extraction using PyTorch ⏳ **In Progress**
 
 The platform now provides complete multi-asset trading capabilities across stocks, forex, and cryptocurrency markets with robust data validation, unified interfaces, and sophisticated data aggregation with quality assurance.
