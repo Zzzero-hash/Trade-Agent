@@ -1,0 +1,13 @@
+{
+  "epoch": 1,
+  "metrics": {
+    "train_loss": 139902869.06666666,
+    "val_loss": 1350778.7125,
+    "learning_rate": 0.001,
+    "epoch": 1
+  },
+  "is_best": true,
+  "timestamp": "2025-09-12T17:27:40.094910",
+  "model_type": "CNNFeatureExtractor",
+  "filepath": "checkpoints/cnn_demo\\cnn_feature_extractor_best.pth"
+}

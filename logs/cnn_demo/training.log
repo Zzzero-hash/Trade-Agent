@@ -1,0 +1,23 @@
+2025-09-12 17:26:39,662 - src.ml.training_pipeline - INFO - Data prepared: Train=98, Val=28, Test=15
+2025-09-12 17:27:15,395 - src.ml.training_pipeline - INFO - Data prepared: Train=118, Val=34, Test=18
+2025-09-12 17:27:16,782 - src.ml.training_pipeline - INFO - Epoch    1: Train Loss: 211324507.733333, Val Loss: 3298727.700000, LR: 1.00e-03
+2025-09-12 17:27:16,793 - src.ml.training_pipeline - INFO - Saved checkpoint: cnn_feature_extractor_best.pth
+2025-09-12 17:27:16,793 - src.ml.training_pipeline - INFO - New best val_loss: 3298727.700000
+2025-09-12 17:27:17,296 - src.ml.training_pipeline - INFO - Epoch    2: Train Loss: 139902869.066667, Val Loss: 1350778.712500, LR: 1.00e-03
+2025-09-12 17:27:17,314 - src.ml.training_pipeline - INFO - Saved checkpoint: cnn_feature_extractor_best.pth
+2025-09-12 17:27:17,315 - src.ml.training_pipeline - INFO - New best val_loss: 1350778.712500
+2025-09-12 17:27:17,316 - src.ml.training_pipeline - INFO - Training completed in 0.94 seconds
+2025-09-12 17:27:37,462 - src.ml.training_pipeline - INFO - Data prepared: Train=118, Val=34, Test=18
+2025-09-12 17:27:39,425 - src.ml.training_pipeline - INFO - Epoch    1: Train Loss: 211324507.733333, Val Loss: 3298727.700000, LR: 1.00e-03
+2025-09-12 17:27:39,439 - src.ml.training_pipeline - INFO - Saved checkpoint: cnn_feature_extractor_best.pth
+2025-09-12 17:27:39,439 - src.ml.training_pipeline - INFO - New best val_loss: 3298727.700000
+2025-09-12 17:27:40,093 - src.ml.training_pipeline - INFO - Epoch    2: Train Loss: 139902869.066667, Val Loss: 1350778.712500, LR: 1.00e-03
+2025-09-12 17:27:40,106 - src.ml.training_pipeline - INFO - Saved checkpoint: cnn_feature_extractor_best.pth
+2025-09-12 17:27:40,107 - src.ml.training_pipeline - INFO - New best val_loss: 1350778.712500
+2025-09-12 17:27:40,108 - src.ml.training_pipeline - INFO - Training completed in 1.22 seconds
+2025-09-12 17:27:40,136 - src.ml.training_pipeline - INFO - Loaded best checkpoint from epoch 1
+2025-09-12 17:27:40,169 - src.ml.training_pipeline - INFO - Test Results:
+2025-09-12 17:27:40,169 - src.ml.training_pipeline - INFO -   test_loss: 1128935.270833
+2025-09-12 17:27:40,170 - src.ml.training_pipeline - INFO -   test_mae: 698.674438
+2025-09-12 17:27:40,170 - src.ml.training_pipeline - INFO -   test_rmse: 1062.513657
+2025-09-12 17:27:40,254 - src.ml.training_pipeline - INFO - Training pipeline closed

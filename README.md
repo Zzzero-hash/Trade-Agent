@@ -30,7 +30,8 @@ ai-trading-platform/
 │   ├── ml/                       # Machine learning components
 │   │   ├── __init__.py
 │   │   ├── base_models.py        # Abstract ML model classes
-│   │   └── feature_engineering.py # Feature engineering pipeline
+│   │   ├── feature_engineering.py # Feature engineering pipeline
+│   │   └── cnn_model.py          # CNN feature extraction model
 │   └── utils/                    # Utility functions
 │       ├── __init__.py
 │       ├── logging.py            # Logging infrastructure
@@ -400,6 +401,9 @@ python examples/data_aggregation_demo.py
 
 # Feature engineering pipeline demonstration
 python examples/feature_engineering_demo.py
+
+# CNN feature extraction model demonstration
+python examples/cnn_feature_extraction_demo.py
 ```
 
 ## Testing
@@ -442,6 +446,15 @@ The platform includes comprehensive test coverage for all major components:
   - Fractal dimension and Hurst exponent calculations
   - Cross-asset correlation and momentum features
 
+### ML Model Tests
+
+- **`tests/test_cnn_model.py`**: CNN feature extraction model validation ✅
+  - Model architecture and forward pass testing
+  - Training pipeline with synthetic data
+  - Model save/load functionality
+  - Configuration validation and edge cases
+  - Multi-head attention mechanism testing
+
 ### Running Tests
 
 ```bash
@@ -459,6 +472,9 @@ pytest tests/test_data_aggregator.py
 # Run feature engineering tests
 pytest tests/test_technical_indicators.py
 pytest tests/test_advanced_features.py
+
+# Run ML model tests
+pytest tests/test_cnn_model.py
 
 # Run with coverage
 pytest tests/ --cov=src --cov-report=html
@@ -620,8 +636,190 @@ This implementation addresses the following requirements:
 - **Requirement 4.3**: Rolling windows and lag features for time series ✅ **Complete**
 - **Requirement 4.5**: Custom feature engineering pipelines ✅ **Complete**
 
-### ML/AI Infrastructure (In Progress)
+### ML/AI Infrastructure ✅ **CNN Feature Extraction Complete**
 
-- **Requirement 1.1**: CNN+LSTM models for feature extraction using PyTorch ⏳ **In Progress**
+- **Requirement 1.1**: CNN+LSTM models for feature extraction using PyTorch ✅ **CNN Complete**
+- **Requirement 1.2**: CNN spatial pattern extraction from multi-dimensional market data ✅ **Complete**
+- **Requirement 5.2**: CNN architecture with multiple filter sizes and attention ✅ **Complete**
 
-The platform now provides complete multi-asset trading capabilities across stocks, forex, and cryptocurrency markets with robust data validation, unified interfaces, and sophisticated data aggregation with quality assurance.
+## CNN Feature Extraction Model ✅ **Complete**
+
+The platform now includes a sophisticated CNN feature extraction model that implements spatial pattern recognition for multi-dimensional market data.
+
+### Key Features
+
+**Multi-Scale Convolutional Architecture:**
+
+- **Multiple Filter Sizes**: Simultaneous convolutions with filters of sizes [3, 5, 7, 11] to capture patterns at different time scales
+- **Batch Normalization**: Stable training with normalized activations
+- **Residual Connections**: Skip connections to prevent vanishing gradients
+- **Xavier Initialization**: Proper weight initialization for stable training
+
+**Attention Mechanism:**
+
+- **Multi-Head Attention**: 8-head attention mechanism for important feature selection
+- **Self-Attention**: Learns relationships between different time steps
+- **Attention Weights**: Provides interpretability for model decisions
+
+**Training Features:**
+
+- **Gradient Clipping**: Prevents exploding gradients during training
+- **Learning Rate Scheduling**: Adaptive learning rate with plateau detection
+- **Early Stopping**: Prevents overfitting with validation monitoring
+- **Model Checkpointing**: Automatic saving of best models during training
+
+### Architecture Details
+
+The CNN feature extractor processes input data of shape `(batch_size, input_channels, sequence_length)` and outputs features of shape `(batch_size, sequence_length, output_dim)`.
+
+**Network Components:**
+
+1. **Parallel Convolutions**: Multiple 1D convolutions with different kernel sizes
+2. **Feature Concatenation**: Combines outputs from all filter sizes
+3. **Multi-Head Attention**: Applies attention mechanism to combined features
+4. **Residual Connection**: Adds projected input to attended features
+5. **Feature Projection**: Final linear layer to desired output dimensions
+
+### Usage Example
+
+```python
+from src.ml.cnn_model import CNNFeatureExtractor, create_cnn_config, create_cnn_data_loader
+import numpy as np
+
+# Create CNN configuration
+config = create_cnn_config(
+    input_dim=20,           # Number of input features (e.g., OHLCV + indicators)
+    output_dim=64,          # Number of output features
+    filter_sizes=[3, 5, 7, 11],  # Multiple filter sizes
+    num_filters=64,         # Filters per size
+    use_attention=True,     # Enable attention mechanism
+    num_attention_heads=8,  # Number of attention heads
+    dropout_rate=0.3,       # Dropout for regularization
+    learning_rate=0.001,    # Adam optimizer learning rate
+    batch_size=32,          # Training batch size
+    epochs=100,             # Training epochs
+    device="cuda" if torch.cuda.is_available() else "cpu"
+)
+
+# Initialize model
+cnn_model = CNNFeatureExtractor(config)
+
+# Prepare training data
+# X_train shape: (samples, input_channels, sequence_length)
+# y_train shape: (samples, sequence_length, target_dim)
+train_loader = create_cnn_data_loader(X_train, y_train, batch_size=32)
+val_loader = create_cnn_data_loader(X_val, y_val, batch_size=32)
+
+# Train the model
+training_result = cnn_model.train_model(
+    train_loader=train_loader,
+    val_loader=val_loader,
+    num_epochs=100
+)
+
+print(f"Training completed in {training_result.epochs_trained} epochs")
+print(f"Final training loss: {training_result.train_loss:.6f}")
+print(f"Final validation loss: {training_result.val_loss:.6f}")
+
+# Extract features from new data
+features = cnn_model.extract_features(X_new)
+print(f"Extracted features shape: {features.shape}")
+
+# Save trained model
+cnn_model.save_model("checkpoints/cnn_feature_extractor.pth")
+```
+
+### Model Configuration Options
+
+The CNN model supports extensive configuration through the `create_cnn_config()` function:
+
+**Architecture Parameters:**
+
+- `input_dim`: Number of input channels (market features)
+- `output_dim`: Number of output features to extract
+- `filter_sizes`: List of convolutional filter sizes (default: [3, 5, 7, 11])
+- `num_filters`: Number of filters per size (default: 64)
+
+**Attention Parameters:**
+
+- `use_attention`: Enable/disable attention mechanism (default: True)
+- `num_attention_heads`: Number of attention heads (default: 8)
+
+**Training Parameters:**
+
+- `dropout_rate`: Dropout rate for regularization (default: 0.3)
+- `learning_rate`: Adam optimizer learning rate (default: 0.001)
+- `batch_size`: Training batch size (default: 32)
+- `epochs`: Number of training epochs (default: 100)
+
+### Model Persistence
+
+The CNN model includes comprehensive save/load functionality:
+
+**Saving Models:**
+
+```python
+# Save model with metadata
+cnn_model.save_model("models/cnn_extractor.pth")
+
+# This creates two files:
+# - cnn_extractor.pth: PyTorch model checkpoint
+# - cnn_extractor_config.json: Human-readable configuration
+```
+
+**Loading Models:**
+
+```python
+# Load pre-trained model
+cnn_model = CNNFeatureExtractor(config)
+cnn_model.load_model("models/cnn_extractor.pth")
+
+# Model is ready for inference
+features = cnn_model.extract_features(new_data)
+```
+
+### Integration with Feature Engineering
+
+The CNN model integrates seamlessly with the feature engineering pipeline:
+
+```python
+from src.ml.feature_engineering import FeatureEngineer, TechnicalIndicators
+
+# Create feature engineering pipeline
+engineer = FeatureEngineer()
+engineer.add_transformer(TechnicalIndicators())
+
+# Process market data to create CNN input
+market_features = engineer.fit_transform(market_data_df)
+
+# Reshape for CNN input: (samples, features, sequence_length)
+cnn_input = market_features.values.reshape(
+    (num_samples, num_features, sequence_length)
+)
+
+# Extract spatial features using CNN
+spatial_features = cnn_model.extract_features(cnn_input)
+```
+
+### Testing and Validation
+
+The CNN model includes comprehensive testing:
+
+- **`tests/test_cnn_model.py`**: Model architecture and training validation ✅
+- **`examples/cnn_feature_extraction_demo.py`**: Complete usage demonstration ✅
+
+### Performance Characteristics
+
+**Training Performance:**
+
+- **GPU Acceleration**: Automatic CUDA detection and usage
+- **Memory Efficient**: Gradient checkpointing for large models
+- **Stable Training**: Gradient clipping and learning rate scheduling
+
+**Inference Performance:**
+
+- **Batch Processing**: Efficient batch inference for multiple samples
+- **Low Latency**: Optimized forward pass for real-time applications
+- **Scalable**: Supports distributed inference with Ray
+
+The platform now provides complete multi-asset trading capabilities across stocks, forex, and cryptocurrency markets with robust data validation, unified interfaces, sophisticated data aggregation with quality assurance, and advanced CNN-based feature extraction for spatial pattern recognition in market data.

@@ -47,16 +47,15 @@ class BaseMLModel(ABC):
         """Build the model architecture"""
         pass
     
-    @abstractmethod
-    def train(
+    def fit(
         self, 
         X_train: np.ndarray, 
         y_train: np.ndarray,
         X_val: Optional[np.ndarray] = None,
         y_val: Optional[np.ndarray] = None
     ) -> TrainingResult:
-        """Train the model"""
-        pass
+        """Train the model - default implementation"""
+        raise NotImplementedError("Subclasses should implement fit method")
     
     @abstractmethod
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -103,7 +102,7 @@ class BasePyTorchModel(BaseMLModel, nn.Module):
         if torch.cuda.is_available():
             torch.cuda.manual_seed(config.random_seed)
     
-    def train(
+    def train_model(
         self, 
         X_train: np.ndarray, 
         y_train: np.ndarray,
@@ -132,7 +131,7 @@ class BasePyTorchModel(BaseMLModel, nn.Module):
         
         for epoch in range(self.config.epochs):
             # Training phase
-            self.train()
+            super().train(True)  # Use PyTorch's train method
             optimizer.zero_grad()
             
             outputs = self.forward(X_train_tensor)

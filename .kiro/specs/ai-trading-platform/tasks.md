@@ -58,15 +58,18 @@
     - _Requirements: 4.2, 4.3_
   
   - [x] 5.2 Create advanced feature transformers
-
-
     - Implement WaveletTransform for multi-resolution analysis
     - Create FourierFeatures for frequency domain analysis
     - Add FractalFeatures for fractal dimension and Hurst exponent
     - Implement CrossAssetFeatures for correlation analysis
     - _Requirements: 4.2, 4.5_
 
-- [ ] 6. Build CNN feature extraction model
+- [x] 6. Build CNN feature extraction model
+
+
+
+
+
   - Implement CNN architecture with multiple filter sizes and attention mechanisms
   - Create training pipeline with PyTorch and proper data loading
   - Add model checkpointing and versioning capabilities

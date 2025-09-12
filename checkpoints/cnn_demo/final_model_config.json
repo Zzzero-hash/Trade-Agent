@@ -1,0 +1,17 @@
+{
+  "model_type": "CNNFeatureExtractor",
+  "input_dim": 13,
+  "output_dim": 16,
+  "filter_sizes": [
+    3,
+    5,
+    7,
+    11
+  ],
+  "num_filters": 64,
+  "use_attention": true,
+  "num_attention_heads": 8,
+  "dropout_rate": 0.3,
+  "learning_rate": 0.001,
+  "timestamp": "2025-09-12T17:27:40.172682"
+}
