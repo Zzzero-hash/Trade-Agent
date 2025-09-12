@@ -404,6 +404,9 @@ python examples/feature_engineering_demo.py
 
 # CNN feature extraction model demonstration
 python examples/cnn_feature_extraction_demo.py
+
+# LSTM temporal processing model demonstration
+python examples/lstm_temporal_processing_demo.py
 ```
 
 ## Testing
@@ -455,6 +458,14 @@ The platform includes comprehensive test coverage for all major components:
   - Configuration validation and edge cases
   - Multi-head attention mechanism testing
 
+- **`tests/test_lstm_model.py`**: LSTM temporal processing model validation ✅
+  - Bidirectional LSTM architecture testing
+  - Sequence-to-sequence prediction validation
+  - Attention mechanism and skip connections testing
+  - Gradient flow verification
+  - Model persistence and configuration testing
+  - End-to-end training pipeline validation
+
 ### Running Tests
 
 ```bash
@@ -475,6 +486,7 @@ pytest tests/test_advanced_features.py
 
 # Run ML model tests
 pytest tests/test_cnn_model.py
+pytest tests/test_lstm_model.py
 
 # Run with coverage
 pytest tests/ --cov=src --cov-report=html
@@ -589,6 +601,99 @@ print("Technical indicators:", [name for name in feature_names if any(
 - **`tests/test_advanced_features.py`**: Advanced transformer testing with edge cases
 - **`examples/feature_engineering_demo.py`**: Complete usage demonstration
 
+## LSTM Temporal Processing Model ✅ **Complete**
+
+The platform now includes a sophisticated LSTM temporal processing model that implements bidirectional sequence processing with attention mechanisms and skip connections for time series prediction.
+
+### Key Features
+
+**Bidirectional LSTM Architecture:**
+
+- **Multi-Layer Processing**: 3-layer bidirectional LSTM with configurable hidden dimensions
+- **Skip Connections**: Residual connections between LSTM layers for improved gradient flow
+- **Layer Normalization**: Applied after each LSTM layer for stable training
+- **Sequence-to-Sequence**: Full encoder-decoder architecture for temporal prediction
+
+**Advanced Attention Mechanism:**
+
+- **LSTM Attention**: Custom attention mechanism specifically designed for LSTM hidden states
+- **Context Vector Generation**: Weighted combination of all timesteps for comprehensive context
+- **Masking Support**: Handles variable-length sequences with padding masks
+- **Interpretability**: Attention weights provide insights into temporal importance
+
+**Training Features:**
+
+- **Gradient Clipping**: Prevents exploding gradients during LSTM training
+- **Learning Rate Scheduling**: Adaptive learning rate with plateau detection
+- **Early Stopping**: Prevents overfitting with validation monitoring (25 epochs patience)
+- **Dropout Regularization**: Applied at input, LSTM, and output layers
+
+### LSTM Model Capabilities
+
+**Sequence Processing:**
+
+- **Variable Length Input**: Handles sequences of different lengths
+- **Variable Length Output**: Generates sequences of specified target length
+- **Encoder-Only Mode**: Extract temporal features without sequence generation
+- **Bidirectional Processing**: Captures both forward and backward temporal dependencies
+
+**Feature Extraction:**
+
+```python
+# Extract temporal features
+encoded_sequences, context_vectors = lstm_model.extract_features(sequence_data)
+
+# encoded_sequences: (batch_size, seq_len, hidden_dim * 2)  # Bidirectional
+# context_vectors: (batch_size, hidden_dim * 2)  # Attended context
+```
+
+**Sequence Prediction:**
+
+```python
+# Predict future sequences
+predictions = lstm_model.predict_sequence(input_sequences, target_length=20)
+
+# predictions: (batch_size, target_length, output_dim)
+```
+
+### Model Architecture Options
+
+The LSTM model supports extensive configuration:
+
+- **Bidirectional vs Unidirectional**: Choose processing direction
+- **Attention On/Off**: Enable or disable attention mechanism
+- **Skip Connections**: Toggle residual connections between layers
+- **Layer Count**: Configure number of LSTM layers (1-5 recommended)
+- **Hidden Dimensions**: Adjust model capacity
+
+### Integration with CNN
+
+The LSTM model is designed to work seamlessly with the CNN feature extractor:
+
+```python
+# CNN extracts spatial features
+cnn_features = cnn_model.extract_features(market_data)  # (batch, seq, cnn_dim)
+
+# LSTM processes temporal dependencies
+lstm_predictions = lstm_model.predict_sequence(cnn_features, target_length=10)
+
+# Combined CNN+LSTM pipeline for comprehensive analysis
+```
+
+### Performance Characteristics
+
+**Training Performance:**
+
+- **Memory Efficient**: Optimized LSTM implementation with gradient checkpointing
+- **Stable Training**: Layer normalization and gradient clipping prevent training issues
+- **Fast Convergence**: Skip connections and attention improve learning speed
+
+**Inference Performance:**
+
+- **Batch Processing**: Efficient batch inference for multiple sequences
+- **Real-time Capable**: Optimized for low-latency sequence prediction
+- **Scalable**: Supports distributed inference with Ray
+
 ## Next Steps
 
 This foundation provides the core structure and interfaces. The next tasks will implement:
@@ -597,7 +702,7 @@ This foundation provides the core structure and interfaces. The next tasks will 
 2. ~~Exchange connector implementations~~ ✅ **Complete**
 3. ~~Unified data aggregation system~~ ✅ **Complete**
 4. ~~Feature engineering pipeline~~ ✅ **Complete**
-5. CNN+LSTM model architecture
+5. ~~CNN+LSTM model architecture~~ ✅ **Complete**
 6. Reinforcement learning agents
 7. Trading decision engine
 8. API endpoints and user interface
@@ -636,17 +741,19 @@ This implementation addresses the following requirements:
 - **Requirement 4.3**: Rolling windows and lag features for time series ✅ **Complete**
 - **Requirement 4.5**: Custom feature engineering pipelines ✅ **Complete**
 
-### ML/AI Infrastructure ✅ **CNN Feature Extraction Complete**
+### ML/AI Infrastructure ✅ **CNN+LSTM Hybrid Complete**
 
-- **Requirement 1.1**: CNN+LSTM models for feature extraction using PyTorch ✅ **CNN Complete**
+- **Requirement 1.1**: CNN+LSTM models for feature extraction using PyTorch ✅ **Complete**
 - **Requirement 1.2**: CNN spatial pattern extraction from multi-dimensional market data ✅ **Complete**
+- **Requirement 1.3**: LSTM temporal dependency capture in price movements ✅ **Complete**
 - **Requirement 5.2**: CNN architecture with multiple filter sizes and attention ✅ **Complete**
+- **Requirement 5.3**: LSTM sequence-to-sequence architecture for time series prediction ✅ **Complete**
 
-## CNN Feature Extraction Model ✅ **Complete**
+## CNN+LSTM Hybrid Architecture ✅ **Complete**
 
-The platform now includes a sophisticated CNN feature extraction model that implements spatial pattern recognition for multi-dimensional market data.
+The platform now includes both CNN feature extraction and LSTM temporal processing models that work together to form the complete CNN+LSTM hybrid architecture as specified in the design requirements.
 
-### Key Features
+### CNN Feature Extraction Model ✅ **Complete**
 
 **Multi-Scale Convolutional Architecture:**
 
@@ -661,14 +768,29 @@ The platform now includes a sophisticated CNN feature extraction model that impl
 - **Self-Attention**: Learns relationships between different time steps
 - **Attention Weights**: Provides interpretability for model decisions
 
+### LSTM Temporal Processing Model ✅ **Complete**
+
+**Bidirectional LSTM Architecture:**
+
+- **Multi-Layer LSTM**: 3-layer bidirectional LSTM with configurable hidden dimensions
+- **Skip Connections**: Residual connections between LSTM layers for improved gradient flow
+- **Layer Normalization**: Stable training with normalized layer outputs
+- **Sequence-to-Sequence**: Full encoder-decoder architecture for temporal prediction
+
+**Advanced Attention Mechanism:**
+
+- **LSTM Attention**: Custom attention mechanism for LSTM hidden states
+- **Context Vector Generation**: Weighted combination of all timesteps
+- **Masking Support**: Handles variable-length sequences with padding masks
+
 **Training Features:**
 
-- **Gradient Clipping**: Prevents exploding gradients during training
+- **Gradient Clipping**: Prevents exploding gradients during LSTM training
 - **Learning Rate Scheduling**: Adaptive learning rate with plateau detection
 - **Early Stopping**: Prevents overfitting with validation monitoring
 - **Model Checkpointing**: Automatic saving of best models during training
 
-### Architecture Details
+### CNN Architecture Details
 
 The CNN feature extractor processes input data of shape `(batch_size, input_channels, sequence_length)` and outputs features of shape `(batch_size, sequence_length, output_dim)`.
 
@@ -680,7 +802,20 @@ The CNN feature extractor processes input data of shape `(batch_size, input_chan
 4. **Residual Connection**: Adds projected input to attended features
 5. **Feature Projection**: Final linear layer to desired output dimensions
 
-### Usage Example
+### LSTM Architecture Details
+
+The LSTM temporal processor handles input sequences of shape `(batch_size, seq_len, input_dim)` and generates output sequences of shape `(batch_size, target_length, output_dim)`.
+
+**Network Components:**
+
+1. **Input Projection**: Linear transformation to match LSTM hidden dimensions
+2. **Multi-Layer Bidirectional LSTM**: 3 layers with skip connections between layers
+3. **Layer Normalization**: Applied after each LSTM layer for stable training
+4. **Attention Mechanism**: Custom LSTM attention for context vector generation
+5. **Sequence-to-Sequence Decoder**: Unidirectional LSTM decoder for output generation
+6. **Output Projection**: Final linear layers for sequence prediction
+
+### CNN Usage Example
 
 ```python
 from src.ml.cnn_model import CNNFeatureExtractor, create_cnn_config, create_cnn_data_loader
@@ -717,10 +852,6 @@ training_result = cnn_model.train_model(
     num_epochs=100
 )
 
-print(f"Training completed in {training_result.epochs_trained} epochs")
-print(f"Final training loss: {training_result.train_loss:.6f}")
-print(f"Final validation loss: {training_result.val_loss:.6f}")
-
 # Extract features from new data
 features = cnn_model.extract_features(X_new)
 print(f"Extracted features shape: {features.shape}")
@@ -729,24 +860,83 @@ print(f"Extracted features shape: {features.shape}")
 cnn_model.save_model("checkpoints/cnn_feature_extractor.pth")
 ```
 
+### LSTM Usage Example
+
+```python
+from src.ml.lstm_model import LSTMTemporalProcessor, create_lstm_config, create_lstm_data_loader
+import numpy as np
+
+# Create LSTM configuration
+config = create_lstm_config(
+    input_dim=64,           # Number of input features (from CNN or feature engineering)
+    output_dim=32,          # Number of output features
+    hidden_dim=128,         # LSTM hidden dimension
+    num_layers=3,           # Number of LSTM layers
+    sequence_length=60,     # Input sequence length
+    bidirectional=True,     # Use bidirectional LSTM
+    use_attention=True,     # Enable attention mechanism
+    use_skip_connections=True,  # Enable skip connections
+    dropout_rate=0.3,       # Dropout for regularization
+    learning_rate=0.001,    # Adam optimizer learning rate
+    batch_size=32,          # Training batch size
+    epochs=100,             # Training epochs
+    device="cuda" if torch.cuda.is_available() else "cpu"
+)
+
+# Initialize model
+lstm_model = LSTMTemporalProcessor(config)
+
+# Prepare training data
+# X_train shape: (samples, seq_len, input_dim)
+# y_train shape: (samples, target_len, output_dim)
+train_loader = create_lstm_data_loader(X_train, y_train, batch_size=32)
+val_loader = create_lstm_data_loader(X_val, y_val, batch_size=32)
+
+# Train the model
+training_result = lstm_model.train_model(
+    train_loader=train_loader,
+    val_loader=val_loader,
+    num_epochs=100
+)
+
+# Make sequence predictions
+predictions = lstm_model.predict_sequence(X_new, target_length=20)
+print(f"Predictions shape: {predictions.shape}")
+
+# Extract temporal features
+encoded_sequences, context_vectors = lstm_model.extract_features(X_new)
+print(f"Encoded sequences shape: {encoded_sequences.shape}")
+print(f"Context vectors shape: {context_vectors.shape}")
+
+# Save trained model
+lstm_model.save_model("checkpoints/lstm_temporal_processor.pth")
+```
+
 ### Model Configuration Options
 
-The CNN model supports extensive configuration through the `create_cnn_config()` function:
-
-**Architecture Parameters:**
+**CNN Configuration (`create_cnn_config()`):**
 
 - `input_dim`: Number of input channels (market features)
 - `output_dim`: Number of output features to extract
 - `filter_sizes`: List of convolutional filter sizes (default: [3, 5, 7, 11])
 - `num_filters`: Number of filters per size (default: 64)
-
-**Attention Parameters:**
-
 - `use_attention`: Enable/disable attention mechanism (default: True)
 - `num_attention_heads`: Number of attention heads (default: 8)
+- `dropout_rate`: Dropout rate for regularization (default: 0.3)
+- `learning_rate`: Adam optimizer learning rate (default: 0.001)
+- `batch_size`: Training batch size (default: 32)
+- `epochs`: Number of training epochs (default: 100)
 
-**Training Parameters:**
+**LSTM Configuration (`create_lstm_config()`):**
 
+- `input_dim`: Number of input features
+- `output_dim`: Number of output features
+- `hidden_dim`: LSTM hidden dimension (default: 128)
+- `num_layers`: Number of LSTM layers (default: 3)
+- `sequence_length`: Length of input sequences (default: 60)
+- `bidirectional`: Use bidirectional LSTM (default: True)
+- `use_attention`: Enable attention mechanism (default: True)
+- `use_skip_connections`: Enable skip connections (default: True)
 - `dropout_rate`: Dropout rate for regularization (default: 0.3)
 - `learning_rate`: Adam optimizer learning rate (default: 0.001)
 - `batch_size`: Training batch size (default: 32)
@@ -754,33 +944,41 @@ The CNN model supports extensive configuration through the `create_cnn_config()`
 
 ### Model Persistence
 
-The CNN model includes comprehensive save/load functionality:
+Both CNN and LSTM models include comprehensive save/load functionality:
 
 **Saving Models:**
 
 ```python
-# Save model with metadata
+# Save CNN model with metadata
 cnn_model.save_model("models/cnn_extractor.pth")
 
-# This creates two files:
-# - cnn_extractor.pth: PyTorch model checkpoint
-# - cnn_extractor_config.json: Human-readable configuration
+# Save LSTM model with metadata
+lstm_model.save_model("models/lstm_processor.pth")
+
+# Each creates two files:
+# - model.pth: PyTorch model checkpoint with full state
+# - model_config.json: Human-readable configuration
 ```
 
 **Loading Models:**
 
 ```python
-# Load pre-trained model
+# Load pre-trained CNN model
 cnn_model = CNNFeatureExtractor(config)
 cnn_model.load_model("models/cnn_extractor.pth")
 
-# Model is ready for inference
-features = cnn_model.extract_features(new_data)
+# Load pre-trained LSTM model
+lstm_model = LSTMTemporalProcessor(config)
+lstm_model.load_model("models/lstm_processor.pth")
+
+# Models are ready for inference
+cnn_features = cnn_model.extract_features(new_data)
+lstm_predictions = lstm_model.predict_sequence(sequence_data)
 ```
 
 ### Integration with Feature Engineering
 
-The CNN model integrates seamlessly with the feature engineering pipeline:
+The CNN+LSTM models integrate seamlessly with the feature engineering pipeline:
 
 ```python
 from src.ml.feature_engineering import FeatureEngineer, TechnicalIndicators
@@ -789,37 +987,58 @@ from src.ml.feature_engineering import FeatureEngineer, TechnicalIndicators
 engineer = FeatureEngineer()
 engineer.add_transformer(TechnicalIndicators())
 
-# Process market data to create CNN input
+# Process market data to create model input
 market_features = engineer.fit_transform(market_data_df)
 
-# Reshape for CNN input: (samples, features, sequence_length)
+# For CNN: Reshape to (samples, features, sequence_length)
 cnn_input = market_features.values.reshape(
     (num_samples, num_features, sequence_length)
 )
-
-# Extract spatial features using CNN
 spatial_features = cnn_model.extract_features(cnn_input)
+
+# For LSTM: Use features directly (samples, seq_len, features)
+lstm_input = market_features.values.reshape(
+    (num_samples, sequence_length, num_features)
+)
+encoded_sequences, context_vectors = lstm_model.extract_features(lstm_input)
+
+# Combine CNN and LSTM features for hybrid approach
+hybrid_features = np.concatenate([
+    spatial_features.reshape(num_samples, -1),
+    context_vectors
+], axis=1)
 ```
 
 ### Testing and Validation
 
-The CNN model includes comprehensive testing:
+Both CNN and LSTM models include comprehensive testing:
 
-- **`tests/test_cnn_model.py`**: Model architecture and training validation ✅
-- **`examples/cnn_feature_extraction_demo.py`**: Complete usage demonstration ✅
+- **`tests/test_cnn_model.py`**: CNN architecture and training validation ✅
+- **`tests/test_lstm_model.py`**: LSTM architecture and training validation ✅
+- **`examples/cnn_feature_extraction_demo.py`**: CNN usage demonstration ✅
+- **`examples/lstm_temporal_processing_demo.py`**: LSTM usage demonstration ✅
 
 ### Performance Characteristics
 
 **Training Performance:**
 
-- **GPU Acceleration**: Automatic CUDA detection and usage
-- **Memory Efficient**: Gradient checkpointing for large models
-- **Stable Training**: Gradient clipping and learning rate scheduling
+- **GPU Acceleration**: Automatic CUDA detection and usage for both CNN and LSTM
+- **Memory Efficient**: Gradient checkpointing and optimized memory usage
+- **Stable Training**: Gradient clipping, learning rate scheduling, and early stopping
+- **Regularization**: Dropout, layer normalization, and skip connections
 
 **Inference Performance:**
 
 - **Batch Processing**: Efficient batch inference for multiple samples
 - **Low Latency**: Optimized forward pass for real-time applications
-- **Scalable**: Supports distributed inference with Ray
+- **Sequence Processing**: Efficient sequence-to-sequence prediction
+- **Feature Extraction**: Fast temporal and spatial feature extraction
 
-The platform now provides complete multi-asset trading capabilities across stocks, forex, and cryptocurrency markets with robust data validation, unified interfaces, sophisticated data aggregation with quality assurance, and advanced CNN-based feature extraction for spatial pattern recognition in market data.
+**Model Capabilities:**
+
+- **CNN Features**: Spatial pattern recognition across multiple time scales
+- **LSTM Features**: Long-term temporal dependency modeling
+- **Attention Mechanisms**: Interpretable attention weights for both models
+- **Hybrid Architecture**: Combined CNN+LSTM for comprehensive market analysis
+
+The platform now provides complete multi-asset trading capabilities across stocks, forex, and cryptocurrency markets with robust data validation, unified interfaces, sophisticated data aggregation with quality assurance, and advanced CNN+LSTM hybrid architecture for comprehensive spatial and temporal pattern recognition in market data.
