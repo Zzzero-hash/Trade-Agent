@@ -223,13 +223,14 @@ class BaseRLAgent(ABC):
         episode_rewards = []
         
         for _ in range(n_episodes):
-            obs = env.reset()
+            obs, _ = env.reset()  # Handle new gymnasium API
             episode_reward = 0
             done = False
+            truncated = False
             
-            while not done:
+            while not (done or truncated):
                 action, _ = self.predict(obs)
-                obs, reward, done, _ = env.step(action)
+                obs, reward, done, truncated, _ = env.step(action)
                 episode_reward += reward
             
             episode_rewards.append(episode_reward)

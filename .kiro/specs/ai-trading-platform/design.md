@@ -76,7 +76,9 @@ graph TB
 - `OANDAConnector`: Forex pairs and CFDs
 - `CoinbaseConnector`: Cryptocurrencies and perpetual futures
 - `DataAggregator`: Unified data normalization and timestamping
-- `DataValidator`: Quality checks and anomaly detection
+- `DataQualityValidator`: Advanced anomaly detection with statistical methods
+- `TimestampSynchronizer`: Cross-exchange timestamp alignment
+- `DataQualityReport`: Comprehensive quality metrics and confidence scoring
 
 **Interface Design**:
 ```python
@@ -133,13 +135,25 @@ class FeatureEngineer:
 - 1D Convolutional layers for pattern recognition in price/volume data
 - Multiple filter sizes (3, 5, 7, 11) to capture different time scales
 - Residual connections for deep networks
-- Attention mechanisms for important feature selection
+- Multi-head attention mechanisms for important feature selection
 
 **LSTM Architecture** (Temporal Dependencies):
 - Bidirectional LSTM for forward/backward temporal context
 - Multiple LSTM layers with dropout for regularization
 - Attention-based sequence modeling
 - Skip connections between layers
+
+**Feature Fusion Module**:
+- Cross-attention between CNN and LSTM features
+- Learnable projection layers for dimension alignment
+- Layer normalization and residual connections
+- Configurable fusion dimension for optimal performance
+
+**Multi-Task Learning**:
+- Simultaneous classification (Buy/Hold/Sell) and regression (price prediction)
+- Weighted loss functions for balanced optimization
+- Uncertainty quantification using Monte Carlo dropout
+- Ensemble capabilities with learnable weights
 
 **Hybrid Integration**:
 ```python
@@ -184,7 +198,127 @@ class CNNLSTMModel(nn.Module):
         return classification, regression
 ```
 
-### 4. Reinforcement Learning Ensemble
+### 4. CNN+LSTM Integration with RL Environment
+
+**Enhanced State Representation**:
+The trading environment leverages the pre-trained CNN+LSTM hybrid model as a sophisticated feature extractor, providing RL agents with rich, learned representations instead of basic technical indicators.
+
+**Improved Architecture with Separation of Concerns**:
+```python
+# Abstract base for feature extraction
+class FeatureExtractor(ABC):
+    @abstractmethod
+    def extract_features(self, data: np.ndarray) -> Dict[str, np.ndarray]:
+        pass
+
+# Pure CNN+LSTM feature extraction
+class CNNLSTMExtractor(FeatureExtractor):
+    def __init__(self, hybrid_model: CNNLSTMHybridModel):
+        self.model = hybrid_model
+        self.model.eval()
+        
+    def extract_features(self, market_window: np.ndarray) -> Dict[str, np.ndarray]:
+        """Extract CNN+LSTM features with proper validation and error handling"""
+        # Input validation
+        if market_window is None or market_window.size == 0:
+            raise ValueError("market_window cannot be None or empty")
+        
+        if not isinstance(market_window, np.ndarray):
+            raise TypeError(f"Expected np.ndarray, got {type(market_window)}")
+        
+        try:
+            with torch.no_grad():
+                outputs = self.model.forward(
+                    torch.FloatTensor(market_window).unsqueeze(0),
+                    return_features=True,
+                    use_ensemble=True
+                )
+                
+                return {
+                    'fused_features': outputs['fused_features'][:, -1, :].cpu().numpy(),
+                    'cnn_features': outputs['cnn_features'][:, -1, :].cpu().numpy(),
+                    'lstm_features': outputs['lstm_features'][:, -1, :].cpu().numpy(),
+                    'classification_confidence': torch.max(outputs['classification_probs'], dim=1)[0].cpu().numpy(),
+                    'regression_uncertainty': outputs['regression_uncertainty'].cpu().numpy(),
+                    'ensemble_weights': outputs['ensemble_weights'].cpu().numpy() if outputs['ensemble_weights'] is not None else None
+                }
+        except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
+            raise FeatureExtractionError(f"CNN+LSTM feature extraction failed: {e}") from e
+
+# Caching decorator using efficient implementation
+class CachedFeatureExtractor(FeatureExtractor):
+    def __init__(self, extractor: FeatureExtractor, cache_size: int = 1000, ttl_seconds: int = 60):
+        self.extractor = extractor
+        self.cache = TTLCache(maxsize=cache_size, ttl=ttl_seconds)
+        
+    def extract_features(self, data: np.ndarray) -> Dict[str, np.ndarray]:
+        cache_key = hashlib.md5(data.tobytes()).hexdigest()
+        
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+        
+        features = self.extractor.extract_features(data)
+        self.cache[cache_key] = features
+        return features
+
+# Factory for creating configured extractors
+class FeatureExtractorFactory:
+    @staticmethod
+    def create_extractor(config: FeatureExtractionConfig) -> FeatureExtractor:
+        base_extractor = CNNLSTMExtractor(config.hybrid_model)
+        
+        if config.enable_caching:
+            base_extractor = CachedFeatureExtractor(
+                base_extractor, 
+                config.cache_size, 
+                config.cache_ttl_seconds
+            )
+        
+        if config.enable_fallback:
+            base_extractor = FallbackFeatureExtractor(base_extractor)
+            
+        return base_extractor
+
+class EnhancedTradingEnvironment(gym.Env):
+    def __init__(self, data, cnn_lstm_model, config=None):
+        super().__init__()
+        self.feature_extractor = CNNLSTMFeatureExtractor(cnn_lstm_model)
+        self.fallback_mode = False  # Use basic indicators if CNN+LSTM fails
+        
+    def _get_observation(self) -> np.ndarray:
+        try:
+            # Primary: CNN+LSTM enhanced features
+            market_window = self._get_market_window()
+            cnn_lstm_features = self.feature_extractor.extract_features(market_window)
+            
+            # Combine rich features with portfolio state
+            enhanced_obs = np.concatenate([
+                cnn_lstm_features['fused_features'].flatten(),      # 256-dim rich features
+                cnn_lstm_features['classification_confidence'],      # Model confidence
+                cnn_lstm_features['regression_uncertainty'].flatten(), # Uncertainty estimates
+                self._get_portfolio_features()                       # Portfolio state
+            ])
+            
+            self.fallback_mode = False
+            return enhanced_obs
+            
+        except Exception as e:
+            # Fallback: Basic technical indicators
+            if not self.fallback_mode:
+                print(f"CNN+LSTM feature extraction failed, using fallback: {e}")
+                self.fallback_mode = True
+            
+            return self._get_basic_observation()
+```
+
+**Performance Benefits**:
+- **Rich State Representation**: 256-dimensional fused features vs 15 basic indicators
+- **Pattern Recognition**: CNN extracts complex spatial patterns from price/volume data
+- **Temporal Context**: LSTM captures long-term dependencies beyond simple moving averages
+- **Uncertainty Awareness**: Monte Carlo dropout provides confidence estimates for risk management
+- **Multi-Scale Analysis**: Different CNN filter sizes capture patterns at various time scales
+
+### 5. Reinforcement Learning Ensemble
 
 **RL Algorithms**:
 - **PPO (Proximal Policy Optimization)**: Stable policy gradient method
@@ -197,11 +331,12 @@ class CNNLSTMModel(nn.Module):
 - Dynamic weight adjustment using Thompson sampling
 - Meta-learning for ensemble weight optimization
 
-**Environment Design**:
+**Enhanced Environment Design with CNN+LSTM Integration**:
 ```python
-class TradingEnvironment(gym.Env):
-    def __init__(self, data, initial_balance=100000):
+class EnhancedTradingEnvironment(gym.Env):
+    def __init__(self, data, cnn_lstm_model, initial_balance=100000):
         self.data = data
+        self.cnn_lstm_model = cnn_lstm_model  # Pre-trained CNN+LSTM feature extractor
         self.initial_balance = initial_balance
         
         # Action space: [position_size, hold_time]
@@ -211,16 +346,21 @@ class TradingEnvironment(gym.Env):
             dtype=np.float32
         )
         
-        # Observation space: CNN+LSTM features + portfolio state
+        # Observation space: CNN+LSTM fused features + uncertainty + portfolio state
+        # CNN+LSTM provides 256-dim fused features + uncertainty estimates
+        cnn_lstm_feature_dim = 256 + 1  # fused features + uncertainty
         self.observation_space = gym.spaces.Box(
             low=-np.inf, high=np.inf, 
-            shape=(feature_dim + portfolio_dim,), 
+            shape=(cnn_lstm_feature_dim + portfolio_dim,), 
             dtype=np.float32
         )
     
     def step(self, action):
         # Execute trade, update portfolio, calculate reward
         position_size, hold_time = action
+        
+        # Get CNN+LSTM enhanced observation with rich feature representation
+        observation = self._get_cnn_lstm_enhanced_observation()
         
         # Risk-adjusted reward function
         returns = self.calculate_returns()
@@ -230,9 +370,24 @@ class TradingEnvironment(gym.Env):
         reward = returns * sharpe_ratio - max_drawdown * 0.1
         
         return observation, reward, done, info
+    
+    def _get_cnn_lstm_enhanced_observation(self):
+        # Extract CNN+LSTM features from current market window
+        market_window = self._get_market_window()
+        cnn_lstm_features = self.feature_extractor.extract_features(market_window)
+        
+        # Combine with portfolio state
+        portfolio_state = self._get_portfolio_state()
+        enhanced_obs = np.concatenate([
+            cnn_lstm_features['fused_features'].flatten(),
+            cnn_lstm_features['uncertainty'].flatten(),
+            portfolio_state
+        ])
+        
+        return enhanced_obs
 ```
 
-### 5. Portfolio Management System
+### 6. Portfolio Management System
 
 **Modern Portfolio Theory Integration**:
 - Mean-variance optimization with constraints
@@ -245,6 +400,29 @@ class TradingEnvironment(gym.Env):
 - Time-based rebalancing
 - Volatility-adjusted rebalancing
 - Transaction cost optimization
+
+### 7. Model Interpretability and Explainability
+
+**Attention Visualization**:
+- CNN attention maps showing important price patterns
+- LSTM attention weights highlighting temporal dependencies
+- Cross-attention visualization between CNN and LSTM features
+
+**Feature Importance Analysis**:
+- SHAP (SHapley Additive exPlanations) for local interpretability
+- Permutation importance for global feature ranking
+- Integrated gradients for attribution analysis
+
+**Uncertainty Quantification**:
+- Monte Carlo dropout for prediction confidence intervals
+- Ensemble disagreement as uncertainty measure
+- Calibrated confidence scores for decision reliability
+
+**Decision Audit Trails**:
+- Complete decision history with model versions
+- Feature contributions for each trading signal
+- Ensemble weight evolution over time
+- Performance attribution by model component
 
 ## Data Models
 
@@ -324,6 +502,64 @@ class Position:
 2. **Model Monitoring**: Detect distribution drift and performance degradation
 3. **Ensemble Fallbacks**: Use simpler models when complex ones fail
 4. **Confidence Thresholds**: Only act on high-confidence predictions
+
+### Specific Exception Handling
+
+```python
+# Custom exception hierarchy
+class TradingPlatformError(Exception):
+    """Base exception for trading platform"""
+    pass
+
+class FeatureExtractionError(TradingPlatformError):
+    """Raised when feature extraction fails"""
+    pass
+
+class ModelLoadError(TradingPlatformError):
+    """Raised when model loading fails"""
+    pass
+
+class DataValidationError(TradingPlatformError):
+    """Raised when data validation fails"""
+    pass
+
+# Error boundary implementation
+class ErrorBoundary:
+    def __init__(self, fallback_handler: Callable):
+        self.fallback_handler = fallback_handler
+        
+    def __call__(self, func):
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
+                logger.warning(f"Model operation failed: {e}")
+                return self.fallback_handler(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Unexpected error in {func.__name__}: {e}")
+                raise
+        return wrapper
+```
+
+### Resource Management
+
+```python
+# Context manager for model resources
+class ModelManager:
+    def __init__(self, model_path: str):
+        self.model_path = model_path
+        self.model = None
+    
+    def __enter__(self):
+        self.model = self._load_model()
+        return self.model
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.model is not None:
+            del self.model
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+```
 
 ## Testing Strategy
 

@@ -1,3 +1,59 @@
 # Add patterns of files dvc should ignore, which could improve
 # the performance. Learn more at
 # https://dvc.org/doc/user-guide/dvcignore
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+logs/
+*.log
+tmp/
+temp/
+*.tmp
+
+# Model checkpoints and artifacts (keep lightweight ones in git)
+checkpoints/
+model_checkpoints/
+*.pth
+*.pt
+*.h5
+*.hdf5
+
+# Large data files (should be tracked by DVC instead)
+data/
+datasets/
+*.csv
+*.parquet
+*.feather
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Image outputs
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Configuration with secrets
+config/local.yaml
+config/secrets.yaml
+.env.local

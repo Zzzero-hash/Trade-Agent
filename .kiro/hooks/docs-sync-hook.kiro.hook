@@ -4,7 +4,7 @@
   "description": "Listens to Python source files and configuration changes to automatically update project documentation",
   "version": "1",
   "when": {
-    "type": "fileEdited",
+    "type": "userTriggered",
     "patterns": [
       "src/**/*.py",
       "tests/**/*.py",

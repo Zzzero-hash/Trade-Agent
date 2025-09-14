@@ -8,6 +8,9 @@ scikit-learn>=1.0.0
 torch>=1.9.0
 torchvision>=0.10.0
 
+# Caching
+cachetools>=5.0.0
+
 # Reinforcement Learning
 stable-baselines3>=1.6.0
 gym>=0.21.0

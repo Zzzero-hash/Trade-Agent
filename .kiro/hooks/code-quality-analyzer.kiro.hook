@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Code Quality Analyzer",
+  "description": "Monitors source code files for changes and provides comprehensive analysis including code smells, design patterns, best practices, readability, maintainability, performance optimizations, and security vulnerability detection",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*.py",
+      "tests/**/*.py",
+      "examples/**/*.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the modified Python code files for potential improvements. Focus on:\n\n1. **Code Quality & Smells**: Identify code smells, anti-patterns, and violations of clean code principles\n2. **Design Patterns**: Suggest appropriate design patterns and architectural improvements\n3. **Best Practices**: Check adherence to Python best practices, PEP standards, and project conventions\n4. **Readability**: Evaluate code clarity, naming conventions, documentation, and structure\n5. **Maintainability**: Assess modularity, coupling, cohesion, and long-term maintainability\n6. **Performance**: Identify performance bottlenecks and optimization opportunities\n7. **Security**: Scan for security vulnerabilities, unsafe practices, and potential attack vectors\n\nUse MCP tools to examine the repository structure, dependencies, and related files. Provide specific, actionable suggestions while ensuring existing functionality is preserved. Consider the AI trading platform context with its multi-exchange architecture, ML models, and real-time data processing requirements."
+  }
+}
