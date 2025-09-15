@@ -190,7 +190,3 @@ tmp/
 temp/
 *.tmp
 *.temp
-
-# Other
-.kiro
-.kiro/

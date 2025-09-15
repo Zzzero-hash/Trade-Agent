@@ -1,10 +1,10 @@
 {
-  "enabled": true,
+  "enabled": false,
   "name": "Code Quality Analyzer",
   "description": "Monitors source code files for changes and provides automated code quality analysis including code smells, design patterns, and best practices suggestions",
   "version": "1",
   "when": {
-    "type": "fileEdited",
+    "type": "userTriggered",
     "patterns": [
       "src/**/*.py",
       "tests/**/*.py",
@@ -13,6 +13,6 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "Analyze the modified Python code for potential improvements. Focus on:\n\n1. **Code Smells**: Identify long methods, large classes, duplicate code, complex conditionals, and other maintainability issues\n2. **Design Patterns**: Suggest appropriate design patterns that could improve the code structure\n3. **Best Practices**: Check for Python best practices including PEP 8 compliance, proper error handling, type hints, docstrings\n4. **Performance**: Identify potential performance bottlenecks and suggest optimizations\n5. **Readability**: Suggest improvements for variable naming, code organization, and clarity\n6. **Maintainability**: Recommend refactoring opportunities to reduce complexity and improve modularity\n\nFor each suggestion, provide:\n- Clear explanation of the issue\n- Specific code example showing the improvement\n- Rationale for why the change improves code quality\n- Priority level (High/Medium/Low)\n\nMaintain focus on preserving existing functionality while enhancing code quality. Consider the AI trading platform context and Python/PyTorch/FastAPI technology stack. Utilize MCP Tools to solve complex problems and aid in reasoning capabilities."
+    "prompt": "Analyze the modified Python code for potential improvements. Focus on:\n\n1. **Code Smells**: Identify long methods, large classes, duplicate code, complex conditionals, and other maintainability issues\n2. **Design Patterns**: Suggest appropriate design patterns that could improve the code structure\n3. **Best Practices**: Check for Python best practices including PEP 8 compliance, proper error handling, type hints, docstrings\n4. **Performance**: Identify potential performance bottlenecks and suggest optimizations\n5. **Readability**: Suggest improvements for variable naming, code organization, and clarity\n6. **Maintainability**: Recommend refactoring opportunities to reduce complexity and improve modularity\n\nFor each suggestion, provide:\n- Clear explanation of the issue\n- Specific code example showing the improvement\n- Rationale for why the change improves code quality\n- Priority level (High/Medium/Low)\n\nMaintain focus on preserving existing functionality while enhancing code quality. Consider the AI trading platform context and Python/PyTorch/FastAPI technology stack. Utilize MCP Tools to solve complex problems and aid in reasoning capabilities as well as documentation guidance."
   }
 }
