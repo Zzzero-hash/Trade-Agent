@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trading-platform-config
+  namespace: ai-trading-platform
+data:
+  production.yaml: |
+    database:
+      host: postgres-service
+      port: 5432
+      name: trading_platform
+      pool_size: 20
+      max_overflow: 30
+    
+    redis:
+      host: redis-service
+      port: 6379
+      db: 0
+      max_connections: 100
+    
+    api:
+      host: "0.0.0.0"
+      port: 8000
+      workers: 4
+      timeout: 30
+    
+    ml:
+      model_cache_size: 1000
+      batch_size: 32
+      max_sequence_length: 100
+      feature_dim: 256
+    
+    exchanges:
+      robinhood:
+        base_url: "https://robinhood.com/api"
+        timeout: 30
+        rate_limit: 1000
+      oanda:
+        base_url: "https://api-fxtrade.oanda.com"
+        timeout: 30
+        rate_limit: 500
+      coinbase:
+        base_url: "https://api.exchange.coinbase.com"
+        timeout: 30
+        rate_limit: 1000
+    
+    monitoring:
+      metrics_port: 9090
+      health_check_interval: 30
+      log_level: "INFO"

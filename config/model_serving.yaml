@@ -1,0 +1,146 @@
+# Model Serving Configuration
+# Configuration for the model serving infrastructure
+
+# Environment settings
+environment: development
+debug: true
+
+# API server configuration
+api:
+  host: "0.0.0.0"
+  port: 8080
+  debug: true
+  cors_origins: ["*"]
+  rate_limit: "100/minute"
+  jwt_secret: "your-secret-key-change-in-production"
+  jwt_expiry_hours: 24
+
+# Redis configuration for caching and A/B testing
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: null
+  max_connections: 10
+
+# Model cache configuration
+model_cache:
+  max_models: 10
+  ttl_hours: 24
+  enable_metrics: true
+
+# Batch processing configuration
+batch_processing:
+  max_batch_size: 100
+  batch_timeout_ms: 100
+  max_queue_size: 1000
+  worker_threads: 4
+
+# A/B testing configuration
+ab_testing:
+  max_experiments: 50
+  default_duration_hours: 24
+  min_requests_for_significance: 100
+  confidence_level: 0.95
+
+# Model serving paths
+model_paths:
+  cnn_lstm_hybrid:
+    latest: "models/cnn_lstm_hybrid/latest.pth"
+    v1.0: "models/cnn_lstm_hybrid/v1.0.pth"
+    v1.1: "models/cnn_lstm_hybrid/v1.1.pth"
+  rl_ensemble:
+    latest: "models/rl_ensemble/latest.pkl"
+    v1.0: "models/rl_ensemble/v1.0.pkl"
+
+# Model configurations
+model_configs:
+  cnn_lstm_hybrid:
+    input_dim: 50
+    sequence_length: 60
+    prediction_horizon: 10
+    num_classes: 3
+    regression_targets: 1
+    feature_fusion_dim: 256
+    cnn_filter_sizes: [3, 5, 7, 11]
+    cnn_num_filters: 64
+    lstm_hidden_dim: 128
+    lstm_num_layers: 3
+    num_ensemble_models: 5
+    use_monte_carlo_dropout: true
+    mc_dropout_samples: 100
+    device: "cpu"  # or "cuda" if GPU available
+  
+  rl_ensemble:
+    num_agents: 5
+    agent_types: ["PPO", "SAC", "TD3", "DQN", "A2C"]
+    ensemble_method: "weighted_voting"
+    confidence_threshold: 0.7
+
+# Monitoring and metrics
+monitoring:
+  enabled: true
+  metrics_port: 9090
+  health_check_interval: 30
+  alert_webhook_url: null
+  
+  # Metrics to track
+  metrics:
+    - "prediction_requests_total"
+    - "prediction_latency_seconds"
+    - "prediction_errors_total"
+    - "model_cache_hits_total"
+    - "model_cache_misses_total"
+    - "ab_test_requests_total"
+    - "batch_processing_time_seconds"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_path: "logs/model_serving.log"
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+
+# Security settings
+security:
+  enable_rate_limiting: true
+  enable_request_validation: true
+  max_request_size_mb: 10
+  allowed_origins: ["*"]  # Restrict in production
+  enable_cors: true
+
+# Performance settings
+performance:
+  max_concurrent_requests: 100
+  request_timeout_seconds: 30
+  model_warmup_on_startup: true
+  enable_request_batching: true
+  batch_inference_optimization: true
+
+# Development settings (only used in development environment)
+development:
+  auto_reload: true
+  enable_debug_endpoints: true
+  mock_models: false  # Set to true to use mock models for testing
+  log_request_details: true
+
+# Production settings (override development settings in production)
+production:
+  debug: false
+  auto_reload: false
+  enable_debug_endpoints: false
+  mock_models: false
+  log_request_details: false
+  
+  # Production-specific security
+  security:
+    allowed_origins: ["https://yourdomain.com"]
+    enable_https_only: true
+    enable_request_signing: true
+  
+  # Production performance tuning
+  performance:
+    max_concurrent_requests: 500
+    enable_connection_pooling: true
+    use_async_processing: true

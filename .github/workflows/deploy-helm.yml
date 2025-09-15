@@ -1,0 +1,84 @@
+name: Helm Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      image_tag:
+        description: 'Image tag to deploy'
+        required: true
+        default: 'latest'
+
+jobs:
+  deploy-helm:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.12.0'
+    
+    - name: Configure kubectl
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBE_CONFIG }}
+    
+    - name: Add Helm repositories
+      run: |
+        helm repo add bitnami https://charts.bitnami.com/bitnami
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+        helm repo add jetstack https://charts.jetstack.io
+        helm repo update
+    
+    - name: Deploy infrastructure components
+      run: |
+        # Deploy cert-manager for TLS certificates
+        helm upgrade --install cert-manager jetstack/cert-manager \
+          --namespace cert-manager \
+          --create-namespace \
+          --set installCRDs=true \
+          --wait
+        
+        # Deploy ingress controller
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+          --namespace ingress-nginx \
+          --create-namespace \
+          --set controller.metrics.enabled=true \
+          --set controller.podAnnotations."prometheus\.io/scrape"="true" \
+          --set controller.podAnnotations."prometheus\.io/port"="10254" \
+          --wait
+    
+    - name: Deploy application with Helm
+      run: |
+        helm upgrade --install ai-trading-platform ./helm/ai-trading-platform \
+          --namespace ai-trading-platform \
+          --create-namespace \
+          --set image.tag=${{ github.event.inputs.image_tag }} \
+          --set environment=${{ github.event.inputs.environment }} \
+          --set ingress.enabled=true \
+          --set autoscaling.enabled=true \
+          --values helm/ai-trading-platform/values-${{ github.event.inputs.environment }}.yaml \
+          --wait \
+          --timeout=10m
+    
+    - name: Verify deployment
+      run: |
+        kubectl get pods -n ai-trading-platform
+        kubectl get services -n ai-trading-platform
+        kubectl get ingress -n ai-trading-platform
+        
+        # Wait for all pods to be ready
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=ai-trading-platform -n ai-trading-platform --timeout=300s

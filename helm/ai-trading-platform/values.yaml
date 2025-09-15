@@ -1,0 +1,211 @@
+# Default values for ai-trading-platform
+replicaCount:
+  api: 3
+  mlWorker: 2
+  dataProcessor: 2
+
+image:
+  registry: ghcr.io
+  repository: your-org/ai-trading-platform
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: api.trading-platform.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: trading-platform-tls
+      hosts:
+        - api.trading-platform.com
+
+resources:
+  api:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  mlWorker:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+      nvidia.com/gpu: 1
+    requests:
+      cpu: 500m
+      memory: 2Gi
+  dataProcessor:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+autoscaling:
+  enabled: true
+  api:
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  mlWorker:
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 85
+  dataProcessor:
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 75
+    targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "trading_password"
+    username: "trading_user"
+    password: "trading_password"
+    database: "trading_platform"
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: "fast-ssd"
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 250m
+      limits:
+        memory: 1Gi
+        cpu: 500m
+
+# Redis configuration
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "redis_password"
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: "fast-ssd"
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 200m
+
+# Application configuration
+config:
+  database:
+    host: "ai-trading-platform-postgresql"
+    port: 5432
+    name: "trading_platform"
+    poolSize: 20
+    maxOverflow: 30
+  redis:
+    host: "ai-trading-platform-redis-master"
+    port: 6379
+    db: 0
+    maxConnections: 100
+  api:
+    host: "0.0.0.0"
+    port: 8000
+    workers: 4
+    timeout: 30
+  ml:
+    modelCacheSize: 1000
+    batchSize: 32
+    maxSequenceLength: 100
+    featureDim: 256
+  exchanges:
+    robinhood:
+      baseUrl: "https://robinhood.com/api"
+      timeout: 30
+      rateLimit: 1000
+    oanda:
+      baseUrl: "https://api-fxtrade.oanda.com"
+      timeout: 30
+      rateLimit: 500
+    coinbase:
+      baseUrl: "https://api.exchange.coinbase.com"
+      timeout: 30
+      rateLimit: 1000
+  monitoring:
+    metricsPort: 9090
+    healthCheckInterval: 30
+    logLevel: "INFO"
+
+# Secrets (should be overridden in production)
+secrets:
+  postgresPassword: "trading_password"
+  redisPassword: "redis_password"
+  jwtSecret: "secret_jwt_key"
+  robinhoodUsername: ""
+  robinhoodPassword: ""
+  oandaApiKey: ""
+  coinbaseApiKey: ""
+  coinbaseApiSecret: ""
+
+# Monitoring
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+    adminPassword: "admin"
+
+# Persistence
+persistence:
+  enabled: true
+  storageClass: "fast-ssd"
+  accessMode: ReadWriteOnce
+  size: 50Gi

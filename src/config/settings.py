@@ -40,6 +40,39 @@ class RedisConfig:
 
 
 @dataclass
+class TimescaleDBConfig:
+    """TimescaleDB configuration"""
+    host: str = "localhost"
+    port: int = 5432
+    database: str = "trading_platform_timeseries"
+    username: str = "postgres"
+    password: str = ""
+    pool_size: int = 10
+
+
+@dataclass
+class InfluxDBConfig:
+    """InfluxDB configuration"""
+    url: str = "http://localhost:8086"
+    token: str = "dev-token"
+    org: str = "trading-platform"
+    bucket: str = "market-data"
+    timeout: int = 30000
+
+
+@dataclass
+class DataStorageConfig:
+    """Data storage configuration"""
+    primary_db: str = "timescaledb"
+    enable_influxdb: bool = True
+    enable_redis: bool = True
+    backup_enabled: bool = True
+    retention_days: int = 30
+    backup_path: str = "/tmp/trading_platform_backups"
+    compression_enabled: bool = True
+
+
+@dataclass
 class ExchangeConfig:
     """Exchange API configuration"""
     name: str
@@ -89,6 +122,12 @@ class MonitoringConfig:
     metrics_port: int = 8000
     health_check_interval: int = 30  # seconds
     alert_webhook_url: Optional[str] = None
+    drift_detection_enabled: bool = True
+    drift_detection_window: int = 100
+    performance_monitoring_enabled: bool = True
+    automated_retraining_enabled: bool = True
+    alert_cooldown_minutes: int = 30
+    data_retention_days: int = 30
 
 
 @dataclass
@@ -112,6 +151,9 @@ class Settings:
     # Component configurations
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     redis: RedisConfig = field(default_factory=RedisConfig)
+    timescaledb: TimescaleDBConfig = field(default_factory=TimescaleDBConfig)
+    influxdb: InfluxDBConfig = field(default_factory=InfluxDBConfig)
+    data_storage: DataStorageConfig = field(default_factory=DataStorageConfig)
     ml: MLConfig = field(default_factory=MLConfig)
     ray: RayConfig = field(default_factory=RayConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)

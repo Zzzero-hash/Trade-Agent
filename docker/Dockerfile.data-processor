@@ -1,0 +1,41 @@
+# Data Processor Service Dockerfile
+FROM python:3.11-slim as base
+
+# Build stage
+FROM base as builder
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Runtime stage
+FROM base as runtime
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/* && \
+    groupadd -r datauser && useradd -r -g datauser datauser
+
+COPY --from=builder /opt/venv /opt/venv
+
+WORKDIR /app
+COPY --chown=datauser:datauser src/ ./src/
+COPY --chown=datauser:datauser config/ ./config/
+
+USER datauser
+
+# Health check for data processor
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "from src.services.data_aggregator import DataAggregator; print('Data processor healthy')" || exit 1
+
+CMD ["python", "src/services/data_processor.py"]

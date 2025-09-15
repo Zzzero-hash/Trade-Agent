@@ -1,0 +1,62 @@
+# ML Worker Service Dockerfile
+FROM python:3.11-slim as base
+
+# Build stage with CUDA support for GPU workloads
+FROM nvidia/cuda:11.8-devel-ubuntu20.04 as gpu-builder
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3.11 -m pip install --upgrade pip setuptools wheel
+
+# CPU-only build stage
+FROM base as cpu-builder
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Runtime stage
+FROM base as runtime
+ARG ENABLE_GPU=true
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    RAY_DISABLE_IMPORT_WARNING=1
+
+# Install CUDA runtime if GPU enabled
+RUN if [ "$ENABLE_GPU" = "true" ]; then \
+        apt-get update && apt-get install -y \
+        cuda-runtime-11-8 \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+RUN groupadd -r mluser && useradd -r -g mluser mluser
+
+COPY --from=cpu-builder /opt/venv /opt/venv
+
+WORKDIR /app
+COPY --chown=mluser:mluser src/ ./src/
+COPY --chown=mluser:mluser config/ ./config/
+COPY --chown=mluser:mluser checkpoints/ ./checkpoints/
+
+USER mluser
+
+# Health check for ML worker
+HEALTHCHECK --interval=60s --timeout=30s --start-period=10s --retries=3 \
+    CMD python -c "import torch; print('ML worker healthy')" || exit 1
+
+CMD ["python", "src/ml/worker.py"]

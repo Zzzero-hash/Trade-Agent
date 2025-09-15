@@ -17,6 +17,32 @@ redis:
   password: null
   max_connections: 10
 
+# Time series databases
+timescaledb:
+  host: localhost
+  port: 5432
+  database: trading_platform_timeseries
+  username: postgres
+  password: ""
+  pool_size: 10
+
+influxdb:
+  url: "http://localhost:8086"
+  token: "dev-token"
+  org: "trading-platform"
+  bucket: "market-data"
+  timeout: 30000
+
+# Data storage settings
+data_storage:
+  primary_db: "timescaledb"  # or "influxdb"
+  enable_influxdb: true
+  enable_redis: true
+  backup_enabled: true
+  retention_days: 30
+  backup_path: "/tmp/trading_platform_backups"
+  compression_enabled: true
+
 ml:
   model_registry_path: "models/"
   feature_store_path: "features/"

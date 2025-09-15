@@ -1,0 +1,26 @@
+apiVersion: v2
+name: ai-trading-platform
+description: A Helm chart for AI Trading Platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - trading
+  - ai
+  - machine-learning
+  - fintech
+home: https://github.com/your-org/ai-trading-platform
+sources:
+  - https://github.com/your-org/ai-trading-platform
+maintainers:
+  - name: AI Trading Platform Team
+    email: team@trading-platform.com
+dependencies:
+  - name: postgresql
+    version: 12.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: 17.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

@@ -29,10 +29,17 @@ sqlalchemy>=1.4.0
 psycopg2-binary>=2.9.0
 redis>=4.0.0
 
+# Time Series Database
+influxdb-client>=1.36.0
+asyncpg>=0.28.0  # For TimescaleDB async support
+
 # API Framework
 fastapi>=0.70.0
 uvicorn>=0.15.0
 python-multipart>=0.0.5
+websockets>=10.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
 
 # HTTP Client
 httpx>=0.24.0

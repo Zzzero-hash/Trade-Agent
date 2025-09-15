@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 from collections import defaultdict, deque
 import json
 import requests
-from config.settings import MonitoringConfig, get_settings
-from utils.logging import get_logger
+from src.config.settings import MonitoringConfig, get_settings
+from src.utils.logging import get_logger
 
 logger = get_logger("monitoring")
 

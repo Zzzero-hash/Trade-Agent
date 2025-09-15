@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-processor-deployment
+  namespace: ai-trading-platform
+  labels:
+    app: data-processor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: data-processor
+  template:
+    metadata:
+      labels:
+        app: data-processor
+    spec:
+      containers:
+      - name: data-processor
+        image: ai-trading-platform/data-processor:latest
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://trading_user:$(POSTGRES_PASSWORD)@postgres-service:5432/trading_platform"
+        - name: REDIS_URL
+          value: "redis://:$(REDIS_PASSWORD)@redis-service:6379/0"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: trading-platform-secrets
+              key: postgres-password
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: trading-platform-secrets
+              key: redis-password
+        - name: ROBINHOOD_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: trading-platform-secrets
+              key: robinhood-username
+        - name: ROBINHOOD_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: trading-platform-secrets
+              key: robinhood-password
+        - name: OANDA_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: trading-platform-secrets
+              key: oanda-api-key
+        - name: COINBASE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: trading-platform-secrets
+              key: coinbase-api-key
+        - name: COINBASE_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: trading-platform-secrets
+              key: coinbase-api-secret
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "from src.services.data_aggregator import DataAggregator; print('Data processor healthy')"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "from src.services.data_processor import DataProcessor; print('Data processor ready')"
+          initialDelaySeconds: 15
+          periodSeconds: 15
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: trading-platform-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-processor-service
+  namespace: ai-trading-platform
+spec:
+  selector:
+    app: data-processor
+  ports:
+  - port: 8081
+    targetPort: 8081
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: data-processor-hpa
+  namespace: ai-trading-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: data-processor-deployment
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 20
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 75
+        periodSeconds: 60

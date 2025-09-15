@@ -5,7 +5,7 @@ import logging.handlers
 import sys
 from pathlib import Path
 from typing import Optional
-from config.settings import LoggingConfig, get_settings
+from src.config.settings import LoggingConfig, get_settings
 
 
 class ColoredFormatter(logging.Formatter):
