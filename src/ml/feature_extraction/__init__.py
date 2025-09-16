@@ -15,6 +15,11 @@ from .base import (
 from .config import FeatureExtractionConfig
 from .cnn_lstm_extractor import CNNLSTMExtractor
 from .cached_extractor import CachedFeatureExtractor
+from .intelligent_cached_extractor import (
+    IntelligentCachedFeatureExtractor,
+    CacheTTLConfig,
+    CacheInvalidationConfig
+)
 from .fallback_extractor import FallbackFeatureExtractor
 from .factory import FeatureExtractorFactory
 from .metrics import PerformanceTracker, PerformanceMetrics
@@ -28,6 +33,9 @@ __all__ = [
     'FeatureExtractionConfig',
     'CNNLSTMExtractor',
     'CachedFeatureExtractor',
+    'IntelligentCachedFeatureExtractor',
+    'CacheTTLConfig',
+    'CacheInvalidationConfig',
     'FallbackFeatureExtractor',
     'FeatureExtractorFactory',
     'PerformanceTracker',

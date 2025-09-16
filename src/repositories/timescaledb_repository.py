@@ -11,6 +11,7 @@ import asyncpg
 from asyncpg import Connection, Pool
 from asyncpg.exceptions import PostgresError
 
+from ..connection_pool.database_pool import get_database_pool_manager
 from ..models.time_series import (
     TimeSeriesPoint, 
     TimeSeriesQuery, 
@@ -67,16 +68,20 @@ class TimescaleDBRepository:
         self.command_timeout = command_timeout
         self.server_settings = server_settings or {}
         
-        self._pool: Optional[Pool] = None
+        # Use a unique pool ID for this repository instance
+        self._pool_id = f"timescaledb_{host}_{port}_{database}"
+        self._pool_manager = get_database_pool_manager()
     
     async def connect(self) -> None:
         """Establish connection pool to TimescaleDB."""
         try:
-            self._pool = await asyncpg.create_pool(
+            # Get or create pool through the pool manager
+            self._pool = await self._pool_manager.get_or_create_pool(
+                self._pool_id,
                 host=self.host,
                 port=self.port,
                 database=self.database,
-                user=self.username,
+                username=self.username,
                 password=self.password,
                 min_size=self.min_size,
                 max_size=self.max_size,
@@ -94,22 +99,21 @@ class TimescaleDBRepository:
     
     async def disconnect(self) -> None:
         """Close TimescaleDB connection pool."""
-        if self._pool:
-            try:
-                await self._pool.close()
-                logger.info("Disconnected from TimescaleDB")
-            except Exception as e:
-                logger.error(f"Error disconnecting from TimescaleDB: {e}")
-            finally:
-                self._pool = None
+        try:
+            await self._pool_manager.close_pool(self._pool_id)
+            logger.info("Disconnected from TimescaleDB")
+        except Exception as e:
+            logger.error(f"Error disconnecting from TimescaleDB: {e}")
     
     @asynccontextmanager
     async def get_connection(self):
         """Context manager for database connection."""
+        # Ensure pool is initialized
         if not self._pool:
             await self.connect()
         
-        async with self._pool.acquire() as connection:
+        # Use pool manager to get connection
+        async with self._pool_manager.get_connection(self._pool_id) as connection:
             try:
                 yield connection
             except Exception as e:
@@ -119,12 +123,7 @@ class TimescaleDBRepository:
     async def health_check(self) -> bool:
         """Check TimescaleDB health status."""
         try:
-            if not self._pool:
-                return False
-            
-            async with self.get_connection() as conn:
-                result = await conn.fetchval("SELECT 1")
-                return result == 1
+            return await self._pool_manager.health_check(self._pool_id)
                 
         except Exception as e:
             logger.error(f"TimescaleDB health check failed: {e}")

@@ -11,6 +11,7 @@ from .base import FeatureExtractor
 from .config import FeatureExtractionConfig
 from .cnn_lstm_extractor import CNNLSTMExtractor
 from .cached_extractor import CachedFeatureExtractor
+from .intelligent_cached_extractor import IntelligentCachedFeatureExtractor
 from .fallback_extractor import FallbackFeatureExtractor
 
 
@@ -57,7 +58,9 @@ class FeatureExtractorFactory:
         
         # Add fallback if enabled
         if config.enable_fallback:
-            logger.info("Adding fallback layer with basic technical indicators")
+            logger.info(
+                "Adding fallback layer with basic technical indicators"
+            )
             base_extractor = FallbackFeatureExtractor(base_extractor)
         
         return base_extractor
@@ -101,4 +104,31 @@ class FeatureExtractorFactory:
             base_extractor,
             cache_size=cache_size,
             ttl_seconds=ttl_seconds
+        )
+    
+    @staticmethod
+    def create_intelligent_cached_extractor(
+        hybrid_model,
+        cache_size: int = 1000,
+        ttl_seconds: int = 60,
+        device: Optional[str] = None
+    ) -> FeatureExtractor:
+        """Create an intelligent cached CNN+LSTM extractor
+        
+        Args:
+            hybrid_model: Pre-trained CNN+LSTM hybrid model
+            cache_size: Maximum cache size
+            ttl_seconds: Cache time-to-live in seconds
+            device: Device for model inference
+            
+        Returns:
+            Intelligent cached CNN+LSTM feature extractor
+        """
+        base_extractor = CNNLSTMExtractor(hybrid_model, device)
+        return IntelligentCachedFeatureExtractor(
+            base_extractor,
+            config=FeatureExtractionConfig(
+                cache_size=cache_size,
+                cache_ttl_seconds=ttl_seconds
+            )
         )

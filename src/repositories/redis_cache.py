@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 import redis.asyncio as redis
 from redis.asyncio import Redis
 from redis.exceptions import RedisError, ConnectionError
+from ..connection_pool.redis_pool import get_redis_pool_manager
 
 from ..models.market_data import MarketData
 from ..models.trading_signal import TradingSignal
@@ -65,14 +66,18 @@ class RedisCache:
         self.retry_on_timeout = retry_on_timeout
         self.health_check_interval = health_check_interval
         
+        # Use a unique pool ID for this cache instance
+        self._pool_id = f"redis_{host}_{port}_{db}"
+        self._pool_manager = get_redis_pool_manager()
+        
         self._redis: Optional[Redis] = None
-        self._connection_pool = None
     
     async def connect(self) -> None:
         """Establish Redis connection."""
         try:
-            # Create connection pool
-            self._connection_pool = redis.ConnectionPool(
+            # Get or create pool through the pool manager
+            self._redis = await self._pool_manager.get_or_create_pool(
+                self._pool_id,
                 host=self.host,
                 port=self.port,
                 db=self.db,
@@ -84,9 +89,6 @@ class RedisCache:
                 health_check_interval=self.health_check_interval
             )
             
-            # Create Redis client
-            self._redis = Redis(connection_pool=self._connection_pool)
-            
             # Test connection
             await self._redis.ping()
             logger.info("Connected to Redis successfully")
@@ -97,36 +99,31 @@ class RedisCache:
     
     async def disconnect(self) -> None:
         """Close Redis connection."""
-        if self._redis:
-            try:
-                await self._redis.close()
-                logger.info("Disconnected from Redis")
-            except Exception as e:
-                logger.error(f"Error disconnecting from Redis: {e}")
-            finally:
-                self._redis = None
-                self._connection_pool = None
+        try:
+            await self._pool_manager.close_pool(self._pool_id)
+            logger.info("Disconnected from Redis")
+        except Exception as e:
+            logger.error(f"Error disconnecting from Redis: {e}")
     
     @asynccontextmanager
     async def get_client(self):
         """Context manager for Redis client."""
+        # Ensure pool is initialized
         if not self._redis:
             await self.connect()
         
-        try:
-            yield self._redis
-        except Exception as e:
-            logger.error(f"Redis operation failed: {e}")
-            raise
+        # Use pool manager to get client
+        async with self._pool_manager.get_client(self._pool_id) as client:
+            try:
+                yield client
+            except Exception as e:
+                logger.error(f"Redis operation failed: {e}")
+                raise
     
     async def health_check(self) -> bool:
         """Check Redis health status."""
         try:
-            if not self._redis:
-                return False
-            
-            await self._redis.ping()
-            return True
+            return await self._pool_manager.health_check(self._pool_id)
             
         except Exception as e:
             logger.error(f"Redis health check failed: {e}")
