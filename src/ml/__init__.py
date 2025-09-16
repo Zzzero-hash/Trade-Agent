@@ -21,6 +21,18 @@ from .rl_hyperopt import (
     HyperparameterOptimizer, MultiAgentHyperparameterOptimizer,
     optimize_agent_hyperparameters, optimize_ensemble_hyperparameters
 )
+# Interpretability modules
+from .shap_explainer import SHAPExplainer, create_shap_explainer
+from .attention_visualizer import (
+    AttentionVisualizer, create_attention_visualizer
+)
+from .feature_importance_analyzer import (
+    FeatureImportanceAnalyzer, create_feature_importance_analyzer
+)
+from .decision_auditor import DecisionAuditor, create_decision_auditor
+from .uncertainty_calibrator import (
+    UncertaintyCalibrator, create_uncertainty_calibrator
+)
 
 __all__ = [
     # Base classes
@@ -62,5 +74,17 @@ __all__ = [
     'HyperparameterOptimizer',
     'MultiAgentHyperparameterOptimizer',
     'optimize_agent_hyperparameters',
-    'optimize_ensemble_hyperparameters'
+    'optimize_ensemble_hyperparameters',
+    
+    # Interpretability modules
+    'SHAPExplainer',
+    'create_shap_explainer',
+    'AttentionVisualizer',
+    'create_attention_visualizer',
+    'FeatureImportanceAnalyzer',
+    'create_feature_importance_analyzer',
+    'DecisionAuditor',
+    'create_decision_auditor',
+    'UncertaintyCalibrator',
+    'create_uncertainty_calibrator'
 ]

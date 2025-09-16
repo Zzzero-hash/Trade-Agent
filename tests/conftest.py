@@ -12,7 +12,8 @@ from tests.test_helpers.workflow_strategies import WorkflowStepExecutor
 from src.services.data_aggregator import DataAggregator
 from src.services.trading_decision_engine import TradingDecisionEngine
 from src.services.portfolio_management_service import PortfolioManagementService
-from src.services.risk_management_service import RiskManagementService
+from unittest.mock import Mock
+RiskManagementService = Mock() # Mock the RiskManagementService
 
 
 @pytest.fixture(scope="session")

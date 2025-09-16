@@ -21,6 +21,7 @@ from src.models.market_data import MarketData
 from src.models.portfolio import Portfolio, Position
 from src.ml.hybrid_model import CNNLSTMHybridModel
 from src.ml.rl_ensemble import EnsembleManager
+from src.ml.decision_auditor import DecisionAuditor, create_decision_auditor
 
 
 class RiskLevel(str, Enum):
@@ -84,6 +85,7 @@ class TradingDecisionEngine:
         cnn_lstm_model: CNNLSTMHybridModel,
         rl_ensemble: EnsembleManager,
         position_sizing_params: Optional[PositionSizingParams] = None,
+        decision_auditor: Optional[DecisionAuditor] = None,
         risk_free_rate: float = 0.02,
         enable_stop_loss: bool = True,
         stop_loss_pct: float = 0.05,  # 5% stop loss
@@ -111,6 +113,10 @@ class TradingDecisionEngine:
         self.stop_loss_pct = stop_loss_pct
         self.take_profit_pct = take_profit_pct
         self.model_version = model_version
+
+        # Initialize decision auditor
+        self.decision_auditor = decision_auditor or create_decision_auditor()
+
 
         # Risk management components
         self.risk_calculator = RiskCalculator(risk_free_rate)
@@ -230,6 +236,25 @@ class TradingDecisionEngine:
                 f"Generated signal for {symbol}: {signal.action} "
                 f"(confidence: {signal.confidence:.3f}, "
                 f"position_size: {signal.position_size:.3f})"
+            )
+
+            # Log the decision with the auditor
+            self.decision_auditor.log_decision(
+                model=self.cnn_lstm_model,  # The primary model
+                input_data=market_data,
+                prediction=signal.to_dict(),
+                shap_values=None,  # SHAP values would be computed on-demand
+                attention_weights=cnn_lstm_predictions.get('attention_weights'),
+                confidence_scores={'final_confidence': signal.confidence},
+                feature_importance=None,  # Feature importance would be computed on-demand
+                ensemble_weights=cnn_lstm_predictions.get('ensemble_weights'),
+                metadata={
+                    'symbol': symbol,
+                    'current_price': current_price,
+                    'portfolio_context': portfolio.to_dict() if portfolio else None,
+                    'risk_metrics': risk_metrics.__dict__,
+                    'signal_components': combined_signal,
+                }
             )
 
             return signal
@@ -644,6 +669,22 @@ class TradingDecisionEngine:
             "model_version": self.model_version,
             "symbols_tracked": len(self.price_history),
         }
+
+
+    def register_model_version(
+        self,
+        training_data_hash: Optional[str] = None,
+        hyperparameters: Optional[Dict[str, Any]] = None,
+        performance_metrics: Optional[Dict[str, float]] = None
+    ) -> None:
+        """Register the current model version with the decision auditor."""
+        self.decision_auditor.register_model_version(
+            model=self.cnn_lstm_model,
+            training_data_hash=training_data_hash,
+            hyperparameters=hyperparameters,
+            performance_metrics=performance_metrics
+        )
+        self.logger.info(f"Registered model version {self.cnn_lstm_model.version} with the auditor.")
 
 
 class SignalCombiner:

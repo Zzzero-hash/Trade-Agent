@@ -16,6 +16,8 @@ import asyncio
 import numpy as np
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Callable
+from enum import Enum
+from dataclasses import dataclass, field
 
 from src.utils.logging import get_logger
 from src.utils.monitoring import get_metrics_collector, MetricsCollector
@@ -34,6 +36,8 @@ from .monitoring.exceptions import (
     InsufficientDataError, 
     DriftDetectionError
 )
+from src.ml.feature_extraction.monitoring import FeatureExtractionPerformanceMonitor
+from src.ml.feature_extraction.alerting import FeatureExtractionAlertingSystem
 
 logger = get_logger("model_monitoring")
 
@@ -123,11 +127,35 @@ class ModelMonitoringService:
         self.resource_manager = MonitoringResourceManager(
             max_buffer_size=self.config_manager.config.max_prediction_history
         )
+        self.feature_extraction_monitor = FeatureExtractionPerformanceMonitor(self.alert_system)
+        self.feature_extraction_alerter = FeatureExtractionAlertingSystem(
+            metrics_collector=self.feature_extraction_monitor.metrics_collector, # Assuming metrics_collector is accessible
+            alert_subject=self.alert_system
+        )
         
         # Retraining callbacks
         self.retraining_callbacks: Dict[str, Callable[[str, Any], None]] = {}
         
         logger.info("Model monitoring service initialized with improved architecture")
+        self._register_default_alert_observers()
+
+    def _register_default_alert_observers(self) -> None:
+        """Register default alert observers."""
+        # Example: Register EmailAlertObserver
+        # In a real application, configuration for these would come from settings
+        email_config = self.settings.email_alerts
+        if email_config.enabled:
+            email_observer = EmailAlertObserver(
+                smtp_config=email_config.smtp_settings,
+                recipient_email=email_config.recipient_email
+            )
+            self.register_alert_observer(email_observer)
+        
+        # Register MetricsAlertObserver to ensure alerts are recorded as metrics
+        metrics_observer = MetricsAlertObserver(self.metrics_collector)
+        self.register_alert_observer(metrics_observer)
+        
+        logger.info("Default alert observers registered.")
 
     async def start(self) -> None:
         """Start the monitoring service."""
@@ -408,7 +436,8 @@ class ModelMonitoringService:
             'performance_metrics': None,
             'drift_detection': {
                 'data_drift': None,
-                'performance_drift': None
+                'performance_drift': None,
+                'data_quality_drift': None
             },
             'alerts_generated': []
         }
@@ -629,6 +658,23 @@ class ModelMonitoringService:
         except Exception as e:
             logger.error(f"Performance drift detection failed for {model_name}: {e}")
             drift_results['performance_drift'] = None
+        
+        # Data quality drift detection
+        try:
+            data_quality_drift_data = {'feature_history': model_data['features']}
+            drift_results['data_quality_drift'] = await self.drift_detector.detect_drift(
+                DriftType.DATA_QUALITY_DRIFT,
+                model_name,
+                data_quality_drift_data,
+                self.config_manager.get_drift_threshold(DriftType.DATA_QUALITY_DRIFT)
+            )
+            
+            if drift_results['data_quality_drift'] and drift_results['data_quality_drift'].detected:
+                await self._handle_drift_detection(model_name, drift_results['data_quality_drift'])
+                
+        except Exception as e:
+            logger.error(f"Data quality drift detection failed for {model_name}: {e}")
+            drift_results['data_quality_drift'] = None
         
         return drift_results
     

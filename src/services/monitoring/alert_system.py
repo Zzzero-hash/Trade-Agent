@@ -78,15 +78,30 @@ class AlertSubject:
 
 
 # Concrete Observer Implementations
+async def send_email_mock(to_email: str, subject: str, body: str):
+    """Mock function for sending emails asynchronously."""
+    logger.info(f"MOCK EMAIL SENT to {to_email}: Subject: {subject}, Body: {body}")
+    await asyncio.sleep(0.1)  # Simulate async operation
+
 class EmailAlertObserver(AlertObserver):
     """Email alert notification observer."""
     
-    def __init__(self, smtp_config: Dict[str, Any]):
+    def __init__(self, smtp_config: Dict[str, Any], recipient_email: str):
         self.smtp_config = smtp_config
+        self.recipient_email = recipient_email
     
     async def notify(self, alert: Alert) -> None:
         """Send alert via email."""
-        # Implementation would use aiosmtplib for async email sending
+        subject = f"[{alert.severity.value.upper()}] {alert.title}"
+        body = f"Model: {alert.model_name or 'N/A'}\n" \
+               f"Metric: {alert.metric_name or 'N/A'}\n" \
+               f"Current Value: {alert.current_value or 'N/A'}\n" \
+               f"Threshold: {alert.threshold or 'N/A'}\n" \
+               f"Message: {alert.message}\n" \
+               f"Timestamp: {alert.timestamp}\n" \
+               f"Details: {alert.metadata}"
+        
+        await send_email_mock(self.recipient_email, subject, body)
         logger.info(f"EMAIL ALERT: {alert.title} - {alert.message}")
 
 

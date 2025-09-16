@@ -44,18 +44,18 @@ class FeatureExtractionAlert:
 class FeatureExtractionAlertingSystem:
     """Alerting system for feature extraction performance monitoring"""
     
-    def __init__(self, metrics_collector: EnhancedMetricsCollector):
+    def __init__(self, metrics_collector: EnhancedMetricsCollector, alert_subject: AlertSubject):
         """Initialize alerting system.
         
         Args:
             metrics_collector: Enhanced metrics collector for feature extraction
+            alert_subject: The central AlertSubject instance for sending alerts.
         """
         self.metrics_collector = metrics_collector
-        self.alert_subject = AlertSubject()
+        self.alert_subject = alert_subject  # Use the central AlertSubject
         self.alert_handlers: Dict[AlertType, List[Callable]] = {}
         self.alert_history: List[FeatureExtractionAlert] = []
-        self.alert_cooldown: Dict[str, datetime] = {}
-        self.cooldown_period = timedelta(minutes=5)
+        # Removed internal alert_cooldown and cooldown_period, as they are handled by AlertSubject
         
         # Alert thresholds
         self.thresholds = {
@@ -334,37 +334,6 @@ class FeatureExtractionAlertingSystem:
         Args:
             alert: Alert to process
         """
-        # Check cooldown
-        cooldown_key = f"{alert.alert_type.value}_{alert.severity.value}"
-        now = datetime.now()
-        
-        if cooldown_key in self.alert_cooldown:
-            if now - self.alert_cooldown[cooldown_key] < self.cooldown_period:
-                logger.debug(f"Alert suppressed due to cooldown: {alert.title}")
-                return
-        
-        # Update cooldown
-        self.alert_cooldown[cooldown_key] = now
-        
-        # Add to history
-        self.alert_history.append(alert)
-        
-        # Trim history to last 1000 alerts
-        if len(self.alert_history) > 1000:
-            self.alert_history = self.alert_history[-1000:]
-        
-        # Convert to standard alert format
-        standard_alert = AlertFactory.create_performance_alert(
-            "feature_extraction",
-            alert.alert_type.value,
-            alert.current_value or 0,
-            alert.threshold or 0
-        )
-        standard_alert.severity = alert.severity
-        standard_alert.title = alert.title
-        standard_alert.message = alert.message
-        standard_alert.timestamp = alert.timestamp
-        
         # Send through alert system
         asyncio.create_task(self.alert_subject.notify_observers(standard_alert))
         

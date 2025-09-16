@@ -145,7 +145,7 @@ class MonitoringDashboardService:
             return self.dashboard_cache[cache_key]
         
         # Get model status
-        model_status = self.monitoring_service.get_model_status(model_name)
+        model_status = await self.monitoring_service.get_model_status(model_name)
         
         if not model_status:
             return None
@@ -333,7 +333,7 @@ class MonitoringDashboardService:
         # Calculate model health scores
         model_health = {}
         for model_name in self.monitoring_service.performance_history:
-            status = self.monitoring_service.get_model_status(model_name)
+            status = await self.monitoring_service.get_model_status(model_name)
             model_health[model_name] = {
                 'health_score': status['health_score'],
                 'status': status['drift_status'],

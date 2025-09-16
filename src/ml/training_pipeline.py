@@ -18,6 +18,8 @@ import logging
 
 from .cnn_model import CNNFeatureExtractor, create_cnn_config, create_cnn_data_loader
 from .base_models import ModelConfig, TrainingResult
+from .decision_auditor import DecisionAuditor, create_decision_auditor
+from .uncertainty_calibrator import UncertaintyCalibrator, create_uncertainty_calibrator
 
 
 class MarketDataset(Dataset):
@@ -222,7 +224,9 @@ class CNNTrainingPipeline:
         config: ModelConfig,
         checkpoint_dir: str = "checkpoints",
         log_dir: str = "logs",
-        use_tensorboard: bool = True
+        use_tensorboard: bool = True,
+        decision_auditor: Optional[DecisionAuditor] = None,
+        uncertainty_calibrator: Optional[UncertaintyCalibrator] = None
     ):
         """Initialize training pipeline
         
@@ -258,6 +262,12 @@ class CNNTrainingPipeline:
             self.writer = SummaryWriter(log_dir=log_dir)
         else:
             self.writer = None
+
+        # Initialize decision auditor
+        self.decision_auditor = decision_auditor or create_decision_auditor()
+
+        # Initialize uncertainty calibrator
+        self.uncertainty_calibrator = uncertainty_calibrator or create_uncertainty_calibrator(self.model)
         
         # Training state
         self.current_epoch = 0
@@ -453,6 +463,31 @@ class CNNTrainingPipeline:
             self.model.is_trained = True
         except FileNotFoundError:
             self.logger.warning("Best checkpoint not found, using current model")
+
+        # Calibrate uncertainty
+        try:
+            self.logger.info("Calibrating model uncertainty...")
+            # Extract validation data for calibration
+            X_val = np.concatenate([batch[0].numpy() for batch in val_loader], axis=0)
+            y_class_val = np.concatenate([batch[1].numpy() for batch in val_loader], axis=0)
+            y_reg_val = np.concatenate([batch[1].numpy() for batch in val_loader], axis=0)
+
+            self.uncertainty_calibrator.calibrate_uncertainty_isotonic(
+                X_val=X_val,
+                y_class_val=y_class_val,
+                y_reg_val=y_reg_val
+            )
+            self.logger.info("Uncertainty calibration completed.")
+        except Exception as e:
+            self.logger.error(f"Failed to calibrate uncertainty: {e}")
+
+        # Register model version with the auditor
+        self.decision_auditor.register_model_version(
+            model=self.model,
+            training_data_hash="<placeholder_training_data_hash>",  # TODO: Implement data hashing
+            hyperparameters=self.config.__dict__,
+            performance_metrics={'val_loss': best_val_loss}
+        )
         
         return TrainingResult(
             train_loss=train_loss,

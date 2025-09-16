@@ -156,13 +156,86 @@ class PerformanceDriftStrategy(DriftDetectionStrategy):
             return AlertSeverity.LOW
 
 
+class DataQualityDriftStrategy(DriftDetectionStrategy):
+    """Detects data quality anomalies using statistical methods (e.g., Z-score)."""
+    
+    def __init__(self, z_score_threshold: float = 3.0, min_samples: int = 30):
+        self.z_score_threshold = z_score_threshold
+        self.min_samples = min_samples
+    
+    async def detect_drift(
+        self, 
+        model_name: str, 
+        data: dict,
+        threshold: float # This threshold will be used for overall anomaly score if multiple methods are combined
+    ) -> Optional[DriftDetectionResult]:
+        """Detect data quality anomalies."""
+        
+        features = data.get('feature_history', [])
+        if len(features) < self.min_samples:
+            return None
+        
+        features_array = np.array(features)
+        
+        anomalies_detected = []
+        for i in range(features_array.shape[1]):
+            feature_data = features_array[:, i]
+            if len(feature_data) < self.min_samples:
+                continue
+            
+            mean = np.mean(feature_data)
+            std_dev = np.std(feature_data)
+            
+            if std_dev == 0:  # Avoid division by zero for constant features
+                continue
+            
+            # Calculate Z-scores for the latest data point
+            latest_value = feature_data[-1]
+            z_score = (latest_value - mean) / std_dev
+            
+            if abs(z_score) > self.z_score_threshold:
+                anomalies_detected.append({
+                    'feature_index': i,
+                    'latest_value': latest_value,
+                    'mean': mean,
+                    'std_dev': std_dev,
+                    'z_score': z_score
+                })
+        
+        detected = len(anomalies_detected) > 0
+        severity = AlertSeverity.LOW
+        if detected:
+            # Simple severity based on number of anomalies for now
+            if len(anomalies_detected) > features_array.shape[1] * 0.5: # More than half features are anomalous
+                severity = AlertSeverity.CRITICAL
+            elif len(anomalies_detected) > features_array.shape[1] * 0.2: # More than 20% features are anomalous
+                severity = AlertSeverity.HIGH
+            else:
+                severity = AlertSeverity.MEDIUM
+        
+        return DriftDetectionResult(
+            drift_type=DriftType.DATA_QUALITY_DRIFT,
+            severity=severity,
+            drift_score=len(anomalies_detected), # Using count of anomalies as score
+            threshold=threshold, # This threshold can be used for number of anomalies
+            detected=detected,
+            timestamp=datetime.now(),
+            details={
+                'anomalies': anomalies_detected,
+                'num_anomalies': len(anomalies_detected),
+                'total_features': features_array.shape[1]
+            }
+        )
+
+
 class DriftDetectionContext:
     """Context class for drift detection strategies."""
     
     def __init__(self):
         self.strategies = {
             DriftType.DATA_DRIFT: KolmogorovSmirnovDriftStrategy(),
-            DriftType.PERFORMANCE_DRIFT: PerformanceDriftStrategy()
+            DriftType.PERFORMANCE_DRIFT: PerformanceDriftStrategy(),
+            DriftType.DATA_QUALITY_DRIFT: DataQualityDriftStrategy()
         }
     
     def set_strategy(self, drift_type: DriftType, strategy: DriftDetectionStrategy):

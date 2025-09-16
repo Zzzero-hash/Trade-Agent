@@ -50,19 +50,22 @@ class PerformanceThresholds:
     max_memory_mb: float = 1000.0  # Maximum 1GB memory usage
 
 
+from src.services.monitoring.alert_system import AlertSubject, AlertFactory, AlertSeverity
+
 class FeatureExtractionPerformanceMonitor:
     """Monitors and tracks feature extraction performance with real-time alerting"""
     
-    def __init__(self, config_manager: Optional[ConfigManager] = None):
+    def __init__(self, alert_subject: AlertSubject, config_manager: Optional[ConfigManager] = None):
         """Initialize performance monitor.
         
         Args:
+            alert_subject: The central AlertSubject instance for sending alerts.
             config_manager: Configuration manager for monitoring settings
         """
         self.config_manager = config_manager or ConfigManager()
         self.metrics_collector = get_metrics_collector()
         self.ray_metrics_collector = get_ray_metrics_collector()
-        self.alert_system = AlertSubject()
+        self.alert_system = alert_subject  # Use the central AlertSubject
         self.performance_tracker = PerformanceTracker()
         
         # Performance tracking
@@ -70,9 +73,7 @@ class FeatureExtractionPerformanceMonitor:
         self.window_size = 1000  # Keep last 100 metrics
         self.thresholds = PerformanceThresholds()
         
-        # Alerting configuration
-        self.alert_cooldown = {}  # cooldown_key -> timestamp
-        self.cooldown_period = timedelta(minutes=5)  # 5 minute cooldown
+        # Alerting configuration (removed internal cooldown, handled by AlertSubject)
         
         # Performance statistics
         self.stats = {
@@ -311,17 +312,7 @@ class FeatureExtractionPerformanceMonitor:
         Args:
             alert: Alert to send
         """
-        # Check cooldown to prevent spam
-        cooldown_key = f"{alert.model_name}_{alert.metric_name}_{alert.severity.value}"
-        now = datetime.now()
-        
-        if cooldown_key in self.alert_cooldown:
-            if now - self.alert_cooldown[cooldown_key] < self.cooldown_period:
-                return  # Skip alert due to cooldown
-        
-        self.alert_cooldown[cooldown_key] = now
-        
-        # Send alert
+        # Send through alert system
         asyncio.create_task(self.alert_system.notify_observers(alert))
         
         # Record alert metric

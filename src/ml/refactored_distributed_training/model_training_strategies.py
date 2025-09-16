@@ -8,6 +8,9 @@ from .exceptions import TrainingError
 from .data_classes import TrainingJob, DistributedTrainingConfig
 from ..training_pipeline import create_training_pipeline
 from ..rl_agents import RLAgentFactory
+from ..hybrid_model import CNNLSTMHybridModel, create_hybrid_model_config
+from ..decision_auditor import DecisionAuditor, create_decision_auditor
+from ..uncertainty_calibrator import UncertaintyCalibrator, create_uncertainty_calibrator
 
 
 class ModelTrainingStrategy(ABC):
@@ -102,22 +105,64 @@ class HybridTrainingStrategy(ModelTrainingStrategy):
         try:
             self.logger.info(f"Starting hybrid training for job {job.job_id}")
             
-            # Implementation for hybrid model training
-            # In a full implementation, you would:
-            # 1. Create proper HybridModelConfig
-            # 2. Initialize CNNLSTMHybridModel with config
-            # 3. Train the model
-            # 4. Return training results
+            training_config = job.config
             
-            # Training logic would go here
-            # This is a simplified version
+            # 1. Create proper HybridModelConfig
+            hybrid_config = create_hybrid_model_config(
+                input_dim=training_config["input_dim"],
+                **training_config.get("model_params", {}),
+            )
+
+            # 2. Initialize CNNLSTMHybridModel with config
+            model = CNNLSTMHybridModel(hybrid_config)
+
+            # 3. Prepare data loaders
+            # This is a simplified data loading. In a real scenario, you'd use a proper dataset class.
+            X_train = training_config["features"]
+            y_class_train = training_config["targets_class"]
+            y_reg_train = training_config["targets_reg"]
+            
+            X_val = training_config["val_features"]
+            y_class_val = training_config["val_targets_class"]
+            y_reg_val = training_config["val_targets_reg"]
+
+            # 4. Train the model
+            training_result = model.fit(
+                X_train, y_class_train, y_reg_train,
+                X_val, y_class_val, y_reg_val,
+                **training_config.get("training_params", {}),
+            )
+
+            # 5. Evaluate the model
+            # In a real scenario, you would have a separate test set.
+            test_metrics = model.evaluate(X_val, y_class_val, y_reg_val)
+
+            # 6. Register model version
+            decision_auditor = create_decision_auditor()
+            decision_auditor.register_model_version(
+                model=model,
+                training_data_hash=training_config.get("data_hash"),
+                hyperparameters=training_config.get("model_params"),
+                performance_metrics=test_metrics,
+            )
+
+            # 7. Calibrate uncertainty
+            uncertainty_calibrator = create_uncertainty_calibrator(model)
+            uncertainty_calibrator.calibrate_uncertainty_isotonic(
+                X_val=X_val,
+                y_class_val=y_class_val,
+                y_reg_val=y_reg_val
+            )
+
             model_path = (
                 f"{config.checkpoint_dir}/{job.job_id}/"
                 "hybrid_model_best.pth"
             )
-            
+            model.save_model(model_path)
+
             return {
-                "training_result": {"train_loss": 0.1, "val_loss": 0.15},
+                "training_result": training_result.__dict__,
+                "test_metrics": test_metrics,
                 "model_path": model_path,
             }
         except Exception as e:

@@ -6,20 +6,15 @@ import pytest
 import asyncio
 import numpy as np
 from datetime import datetime, timedelta
-from unittest.mock import Mock, AsyncMock, patch
+from types import SimpleNamespace
+from unittest.mock import Mock, AsyncMock, MagicMock, patch
 from dataclasses import asdict
 
-from src.services.model_monitoring_service import (
-    ModelMonitoringService,
-    ModelPerformanceMetrics,
-    DriftDetectionResult,
-    DriftType,
-    AlertSeverity,
-    Alert,
-    EmailAlertChannel,
-    SlackAlertChannel,
-    WebhookAlertChannel
-)
+from src.services.model_monitoring_service import ModelMonitoringService
+from src.models.monitoring import ModelPerformanceMetrics, DriftDetectionResult, DriftType, AlertSeverity, Alert
+from src.services.monitoring.alert_system import AlertSubject, AlertFactory, AlertObserver, EmailAlertObserver, SlackAlertObserver
+from src.services.monitoring.resource_manager import MonitoringResourceManager
+from src.services.monitoring.config import MonitoringConfig, ConfigManager
 from src.services.monitoring_dashboard_service import (
     MonitoringDashboardService,
     DashboardMetrics,
@@ -33,6 +28,7 @@ from src.services.automated_retraining_service import (
     RetrainingConfig
 )
 from src.utils.monitoring import MetricsCollector, SystemMetrics
+from src.services.automated_retraining_service import RetrainingJob, RetrainingStatus
 
 
 class TestModelMonitoringService:
@@ -45,16 +41,41 @@ class TestModelMonitoringService:
 
     @pytest.fixture
     def monitoring_service(self, metrics_collector):
-        """Create monitoring service instance"""
-        return ModelMonitoringService(metrics_collector)
+        """Create monitoring service instance with mocked config and settings."""
+        mock_config_manager = MagicMock()
+        mock_config_manager.config = MagicMock()
+        mock_config_manager.config.drift_detection = MagicMock()
+        mock_config_manager.config.drift_detection.thresholds = MagicMock()
+        mock_config_manager.config.max_prediction_history = 1000
+        mock_config_manager.config.drift_detection.window_size = 100
+        mock_config_manager.config.drift_detection.min_samples = 20
+        mock_config_manager.get_drift_threshold.side_effect = lambda x: {
+            DriftType.DATA_DRIFT: 0.05,
+            DriftType.PERFORMANCE_DRIFT: 0.1,
+            DriftType.DATA_QUALITY_DRIFT: 5
+        }[x]
+        mock_config_manager.should_trigger_retraining.return_value = True
+
+        mock_settings = MagicMock()
+        mock_settings.email_alerts = MagicMock(enabled=False, smtp_settings=Mock(), recipient_email='')
+
+        with patch('src.services.model_monitoring_service.ConfigManager', return_value=mock_config_manager), \
+             patch('src.services.model_monitoring_service.get_settings', return_value=mock_settings), \
+             patch('src.services.model_monitoring_service.MetricsAlertObserver', create=True) as metrics_cls:
+            metrics_cls.return_value = MagicMock()
+            service = ModelMonitoringService(metrics_collector=metrics_collector)
+            # Manually set prediction_history and feature_history for tests that rely on it
+            service.prediction_history = {}
+            service.feature_history = {}
+            return service
 
     @pytest.fixture
     def sample_performance_metrics(self):
         """Sample performance metrics"""
         return ModelPerformanceMetrics(
             timestamp=datetime.now(),
-            model_name="test_model",
-            model_version="v1.0",
+            model_name='test_model',
+            model_version='v1.0',
             accuracy=0.85,
             precision=0.82,
             recall=0.88,
@@ -65,17 +86,17 @@ class TestModelMonitoringService:
     def test_monitoring_service_initialization(self, monitoring_service):
         """Test monitoring service initialization"""
         assert monitoring_service is not None
-        assert monitoring_service.drift_detection_window == 100
-        assert len(monitoring_service.alert_channels) == 0
+        assert monitoring_service.resource_manager.max_buffer_size == 1000
+        assert monitoring_service.config_manager.config.drift_detection.window_size == 100
         assert len(monitoring_service.retraining_callbacks) == 0
 
     def test_register_alert_channel(self, monitoring_service):
         """Test alert channel registration"""
         channel = Mock()
-        monitoring_service.register_alert_channel(channel)
+        monitoring_service.register_alert_observer(channel) # Changed to register_alert_observer
         
-        assert len(monitoring_service.alert_channels) == 1
-        assert monitoring_service.alert_channels[0] == channel
+        assert len(monitoring_service.alert_system._observers) == 2 # Default MetricsObserver + our channel
+        assert monitoring_service.alert_system._observers[1] == channel
 
     def test_register_retraining_callback(self, monitoring_service):
         """Test retraining callback registration"""
@@ -93,8 +114,8 @@ class TestModelMonitoringService:
         
         monitoring_service.set_baseline_metrics(model_name, sample_performance_metrics)
         
-        assert model_name in monitoring_service.baseline_metrics
-        assert monitoring_service.baseline_metrics[model_name] == sample_performance_metrics
+        assert model_name in monitoring_service.performance_tracker.baseline_metrics
+        assert monitoring_service.performance_tracker.baseline_metrics[model_name] == sample_performance_metrics
 
     @pytest.mark.asyncio
     async def test_track_prediction(self, monitoring_service):
@@ -110,10 +131,10 @@ class TestModelMonitoringService:
             model_name, model_version, features, prediction, actual, confidence
         )
         
-        assert model_name in monitoring_service.prediction_history
-        assert len(monitoring_service.prediction_history[model_name]) == 1
+        assert model_name in monitoring_service.resource_manager.prediction_history
+        assert len(monitoring_service.resource_manager.prediction_history[model_name]) == 1
         
-        prediction_data = monitoring_service.prediction_history[model_name][0]
+        prediction_data = monitoring_service.resource_manager.prediction_history[model_name][0]
         assert prediction_data['model_version'] == model_version
         assert np.array_equal(prediction_data['features'], features)
         assert prediction_data['prediction'] == prediction
@@ -158,7 +179,12 @@ class TestModelMonitoringService:
                 model_name, "v1.0", features, 0, 0
             )
         
-        drift_result = await monitoring_service.detect_data_drift(model_name)
+        drift_result = await monitoring_service.drift_detector.detect_drift(
+            DriftType.DATA_DRIFT,
+            model_name,
+            {'feature_history': monitoring_service.resource_manager.feature_history[model_name]},
+            monitoring_service.config_manager.get_drift_threshold(DriftType.DATA_DRIFT)
+        )
         
         assert drift_result is not None
         assert drift_result.drift_type == DriftType.DATA_DRIFT
@@ -185,11 +211,16 @@ class TestModelMonitoringService:
                 model_name, "v1.0", features, 0, 0
             )
         
-        drift_result = await monitoring_service.detect_data_drift(model_name)
+        drift_result = await monitoring_service.drift_detector.detect_drift(
+            DriftType.DATA_DRIFT,
+            model_name,
+            {'feature_history': monitoring_service.resource_manager.feature_history[model_name]},
+            monitoring_service.config_manager.get_drift_threshold(DriftType.DATA_DRIFT)
+        )
         
         assert drift_result is not None
         assert drift_result.drift_type == DriftType.DATA_DRIFT
-        # Note: Drift detection might not always trigger due to randomness
+        assert drift_result.detected # Should detect drift
 
     @pytest.mark.asyncio
     async def test_detect_performance_drift(self, monitoring_service, sample_performance_metrics):
@@ -209,11 +240,51 @@ class TestModelMonitoringService:
                 0.5
             )
         
-        drift_result = await monitoring_service.detect_performance_drift(model_name)
+        drift_result = await monitoring_service.drift_detector.detect_drift(
+            DriftType.PERFORMANCE_DRIFT,
+            model_name,
+            {
+                'baseline_metrics': monitoring_service.performance_tracker.baseline_metrics.get(model_name),
+                'current_metrics': await monitoring_service.performance_tracker.calculate_performance_metrics(
+                    model_name, monitoring_service.resource_manager.prediction_history[model_name][-20:]
+                )
+            },
+            monitoring_service.config_manager.get_drift_threshold(DriftType.PERFORMANCE_DRIFT)
+        )
         
         assert drift_result is not None
         assert drift_result.drift_type == DriftType.PERFORMANCE_DRIFT
         assert drift_result.detected  # Should detect performance degradation
+
+    @pytest.mark.asyncio
+    async def test_detect_data_quality_drift(self, monitoring_service):
+        """Test data quality drift detection"""
+        model_name = "test_model"
+        
+        # Add some prediction history with features
+        np.random.seed(42)
+        for i in range(50):
+            features = np.random.normal(0, 1, 5) # Features
+            await monitoring_service.track_prediction(
+                model_name, "v1.0", 
+                features, i % 2, i % 2, 0.8
+            )
+        
+        # Introduce anomaly in the last feature
+        features_with_anomaly = np.random.normal(0, 1, 5)
+        features_with_anomaly[0] = 100.0 # Outlier
+        await monitoring_service.track_prediction(
+            model_name, "v1.0", 
+            features_with_anomaly, 0, 0, 0.8
+        )
+
+        results = await monitoring_service.run_monitoring_cycle(model_name)
+        
+        assert results['drift_detection']['data_quality_drift'] is not None
+        assert results['drift_detection']['data_quality_drift'].detected is True
+        
+        # Verify an alert was sent for data quality drift
+        assert any(alert.drift_type == DriftType.DATA_QUALITY_DRIFT for alert in monitoring_service.alert_system.alert_history)
 
     @pytest.mark.asyncio
     async def test_run_monitoring_cycle(self, monitoring_service):
@@ -237,11 +308,29 @@ class TestModelMonitoringService:
         assert results['performance_metrics'] is not None
 
     @pytest.mark.asyncio
+    async def test_feature_extraction_alerts_use_central_alert_system(self, monitoring_service):
+        """Test that feature extraction alerts are sent via the central AlertSubject."""
+        mock_notify = AsyncMock()
+        monitoring_service.alert_system.notify_observers = mock_notify
+        
+        # Simulate a feature extraction alert
+        monitoring_service.feature_extraction_monitor._send_performance_alert(
+            "Test Latency Alert", 120.0, 100.0, AlertSeverity.CRITICAL
+        )
+        
+        mock_notify.assert_called_once()
+        alert_arg = mock_notify.call_args[0][0]
+        assert isinstance(alert_arg, Alert)
+        assert alert_arg.title == "Performance Threshold Breach: Latency"
+        assert alert_arg.severity == AlertSeverity.CRITICAL
+        assert alert_arg.model_name == "feature_extraction"
+
+    @pytest.mark.asyncio
     async def test_alert_sending(self, monitoring_service):
         """Test alert sending functionality"""
         # Register mock alert channel
-        mock_channel = Mock()
-        monitoring_service.register_alert_channel(mock_channel)
+        mock_observer = AsyncMock()
+        monitoring_service.alert_system.attach(mock_observer)
         
         alert = Alert(
             id="test_alert",
@@ -252,23 +341,55 @@ class TestModelMonitoringService:
             model_name="test_model"
         )
         
-        await monitoring_service._send_alert(alert)
+        await monitoring_service.alert_system.notify_observers(alert)
         
-        # Verify alert was sent through channel
-        mock_channel.assert_called_once_with(alert)
+        # Verify alert was sent through observer
+        mock_observer.notify.assert_called_once_with(alert)
         
         # Verify alert was stored in history
-        assert len(monitoring_service.alert_history) == 1
-        assert monitoring_service.alert_history[0] == alert
+        assert len(monitoring_service.alert_system.alert_history) == 1
+        assert monitoring_service.alert_system.alert_history[0] == alert
+
+    @pytest.mark.asyncio
+    async def test_email_alert_observer_registered_and_notified(self):
+        """Test that EmailAlertObserver is registered and receives notifications."""
+        with patch('src.services.monitoring.alert_system.send_email_mock', new_callable=AsyncMock) as mock_send_email:
+            # Mock settings for email alerts
+            mock_settings = MagicMock()
+            mock_settings.email_alerts.enabled = True
+            mock_settings.email_alerts.smtp_settings = {'host': 'smtp.test.com'}
+            mock_settings.email_alerts.recipient_email = 'test@example.com'
+            
+            with patch('src.config.settings.get_settings', return_value=mock_settings):
+                monitoring_service = ModelMonitoringService()
+                
+                # Trigger an alert
+                alert = Alert(
+                    id="test_email_alert",
+                    severity=AlertSeverity.CRITICAL,
+                    title="Critical Test Alert",
+                    message="This is a critical test alert for email.",
+                    timestamp=datetime.now(),
+                    model_name="test_model",
+                    metric_name="accuracy"
+                )
+                await monitoring_service.alert_system.notify_observers(alert)
+                
+                mock_send_email.assert_called_once()
+                args, kwargs = mock_send_email.call_args
+                assert args[0] == 'test@example.com'
+                assert "[CRITICAL] Critical Test Alert" in args[1]
+                assert "This is a critical test alert for email." in args[2]
 
     @pytest.mark.asyncio
     async def test_alert_cooldown(self, monitoring_service):
         """Test alert cooldown functionality"""
-        mock_channel = Mock()
-        monitoring_service.register_alert_channel(mock_channel)
+        # Register mock alert observer
+        mock_observer = AsyncMock()
+        monitoring_service.alert_system.attach(mock_observer)
         
         # Set short cooldown for testing
-        monitoring_service.cooldown_period = timedelta(seconds=1)
+        monitoring_service.alert_system.cooldown_period = timedelta(seconds=1)
         
         alert = Alert(
             id="test_alert",
@@ -281,26 +402,26 @@ class TestModelMonitoringService:
         )
         
         # Send first alert
-        await monitoring_service._send_alert(alert)
-        assert mock_channel.call_count == 1
+        await monitoring_service.alert_system.notify_observers(alert)
+        mock_observer.notify.assert_called_once()
         
         # Send second alert immediately (should be blocked by cooldown)
-        await monitoring_service._send_alert(alert)
-        assert mock_channel.call_count == 1  # Still 1, not called again
+        await monitoring_service.alert_system.notify_observers(alert)
+        mock_observer.notify.assert_called_once()  # Still 1, not called again
         
         # Wait for cooldown to expire
         await asyncio.sleep(1.1)
         
         # Send third alert (should go through)
-        await monitoring_service._send_alert(alert)
-        assert mock_channel.call_count == 2
+        await monitoring_service.alert_system.notify_observers(alert)
+        assert mock_observer.notify.call_count == 2
 
     def test_get_model_status(self, monitoring_service, sample_performance_metrics):
         """Test getting model status"""
         model_name = "test_model"
         
         # Add performance history
-        monitoring_service.performance_history[model_name] = [sample_performance_metrics]
+        monitoring_service.performance_tracker.performance_history[model_name] = [sample_performance_metrics]
         
         status = monitoring_service.get_model_status(model_name)
         
@@ -324,7 +445,7 @@ class TestModelMonitoringService:
             accuracy=0.8, precision=0.8, recall=0.8, f1_score=0.8
         )
         
-        monitoring_service.performance_history[model_name] = [old_metrics]
+        monitoring_service.performance_tracker.performance_history[model_name] = [old_metrics]
         
         old_alert = Alert(
             id="old_alert",
@@ -333,7 +454,7 @@ class TestModelMonitoringService:
             message="Old alert",
             timestamp=old_time
         )
-        monitoring_service.alert_history.append(old_alert)
+        monitoring_service.alert_system.alert_history.append(old_alert)
         
         # Add recent data
         recent_metrics = ModelPerformanceMetrics(
@@ -342,15 +463,15 @@ class TestModelMonitoringService:
             model_version="v1.0",
             accuracy=0.85, precision=0.85, recall=0.85, f1_score=0.85
         )
-        monitoring_service.performance_history[model_name].append(recent_metrics)
+        monitoring_service.performance_tracker.performance_history[model_name].append(recent_metrics)
         
         # Cleanup old data (keep 30 days)
         await monitoring_service.cleanup_old_data(days_to_keep=30)
         
         # Verify old data was removed
-        assert len(monitoring_service.performance_history[model_name]) == 1
-        assert monitoring_service.performance_history[model_name][0] == recent_metrics
-        assert len(monitoring_service.alert_history) == 0
+        assert len(monitoring_service.performance_tracker.performance_history[model_name]) == 1
+        assert monitoring_service.performance_tracker.performance_history[model_name][0] == recent_metrics
+        assert len(monitoring_service.alert_system.alert_history) == 0
 
 
 class TestMonitoringDashboardService:
@@ -358,8 +479,22 @@ class TestMonitoringDashboardService:
 
     @pytest.fixture
     def monitoring_service(self):
-        """Mock monitoring service"""
-        return Mock(spec=ModelMonitoringService)
+        """Mock monitoring service with necessary attributes."""
+        mock_service = Mock(spec=ModelMonitoringService)
+        mock_service.performance_history = {}
+        mock_service.prediction_history = {}
+        mock_service.alert_history = []
+        mock_service.get_model_status = AsyncMock(return_value={
+            'model_name': 'test_model',
+            'drift_status': 'healthy',
+            'health_score': 85.0,
+            'timestamp': datetime.now(),
+            'performance_metrics': {
+                'accuracy': 0.85,
+                'precision': 0.82
+            }
+        })
+        return mock_service
 
     @pytest.fixture
     def dashboard_service(self, monitoring_service):
@@ -441,20 +576,29 @@ class TestMonitoringDashboardService:
         # Mock alert history
         now = datetime.now()
         monitoring_service.alert_history = [
-            Mock(
+            Alert(
+                id="alert1",
                 timestamp=now - timedelta(hours=1),
                 severity=AlertSeverity.HIGH,
-                model_name="model1"
+                model_name="model1",
+                title="Test Alert 1",
+                message="Message 1"
             ),
-            Mock(
+            Alert(
+                id="alert2",
                 timestamp=now - timedelta(hours=2),
                 severity=AlertSeverity.MEDIUM,
-                model_name="model2"
+                model_name="model2",
+                title="Test Alert 2",
+                message="Message 2"
             ),
-            Mock(
+            Alert(
+                id="alert3",
                 timestamp=now - timedelta(hours=25),  # Outside 24h window
                 severity=AlertSeverity.LOW,
-                model_name="model1"
+                model_name="model1",
+                title="Test Alert 3",
+                message="Message 3"
             )
         ]
         
@@ -483,13 +627,37 @@ class TestAutomatedRetrainingService:
 
     @pytest.fixture
     def monitoring_service(self):
-        """Mock monitoring service"""
-        return Mock(spec=ModelMonitoringService)
+        """Mock monitoring service with necessary attributes."""
+        mock_service = Mock(spec=ModelMonitoringService)
+        mock_service.prediction_history = {} # Needed for _check_minimum_samples
+        return mock_service
 
     @pytest.fixture
     def retraining_service(self, monitoring_service):
         """Create retraining service instance"""
         return AutomatedRetrainingService(monitoring_service)
+
+    @pytest.fixture
+    def advanced_monitoring_stub(self):
+        """Minimal stub that mimics advanced monitoring registration."""
+        handler_box = {}
+
+        class Stub:
+            def __init__(self):
+                def set_handler(handler):
+                    handler_box['handler'] = handler
+                self.performance_monitor = SimpleNamespace(
+                    set_retraining_handler=set_handler
+                )
+
+            def register_retraining_handler(self, handler):
+                self.performance_monitor.set_retraining_handler(handler)
+
+            @property
+            def handler(self):
+                return handler_box.get('handler')
+
+        return Stub()
 
     @pytest.fixture
     def sample_drift_result(self):
@@ -532,6 +700,40 @@ class TestAutomatedRetrainingService:
         
         assert model_name in retraining_service.retraining_callbacks
         assert retraining_service.retraining_callbacks[model_name] == callback
+
+    def test_attach_advanced_monitoring(self, retraining_service, advanced_monitoring_stub):
+        """Test advanced monitoring handler registration."""
+        retraining_service.attach_advanced_monitoring(advanced_monitoring_stub)
+
+        assert retraining_service._advanced_monitoring is advanced_monitoring_stub
+        assert advanced_monitoring_stub.handler is retraining_service._handle_advanced_monitoring_retraining
+
+    @pytest.mark.asyncio
+    async def test_handle_advanced_monitoring_payload(
+        self, retraining_service, advanced_monitoring_stub
+    ):
+        """Ensure automated retraining schedules via advanced monitoring payloads."""
+        retraining_service.attach_advanced_monitoring(advanced_monitoring_stub)
+
+        payload = {
+            'reason': 'performance_degradation',
+            'triggered_at': datetime.now(),
+            'consecutive_failures': 3,
+            'degradations': {'accuracy': 0.2}
+        }
+
+        with patch.object(retraining_service, '_check_cooldown', return_value=True), \
+             patch.object(retraining_service, '_check_minimum_samples', return_value=True), \
+             patch.object(retraining_service, '_start_retraining_job', new_callable=AsyncMock) as mock_start:
+            job_id = await retraining_service._handle_advanced_monitoring_retraining(
+                'test_model', payload
+            )
+
+        assert job_id is not None
+        mock_start.assert_awaited_once()
+        job_arg = mock_start.await_args.args[0]
+        assert job_arg.trigger == RetrainingTrigger.ALERT_THRESHOLD
+        assert job_arg.trigger_details['degradations'] == payload['degradations']
 
     @pytest.mark.asyncio
     async def test_handle_drift_detection_disabled(self, retraining_service, sample_drift_result):
@@ -704,70 +906,6 @@ class TestAutomatedRetrainingService:
         assert job.status == RetrainingStatus.CANCELLED
 
 
-class TestAlertChannels:
-    """Test alert notification channels"""
-
-    def test_email_alert_channel(self):
-        """Test email alert channel"""
-        smtp_config = {
-            'host': 'smtp.example.com',
-            'port': 587,
-            'username': 'test@example.com',
-            'password': 'password'
-        }
-        
-        channel = EmailAlertChannel(smtp_config)
-        assert channel.smtp_config == smtp_config
-        
-        # Test alert sending (mock implementation)
-        alert = Alert(
-            id="test",
-            severity=AlertSeverity.HIGH,
-            title="Test Alert",
-            message="Test message",
-            timestamp=datetime.now()
-        )
-        
-        # Should not raise exception
-        channel(alert)
-
-    def test_slack_alert_channel(self):
-        """Test Slack alert channel"""
-        webhook_url = "https://hooks.slack.com/test"
-        
-        channel = SlackAlertChannel(webhook_url)
-        assert channel.webhook_url == webhook_url
-        
-        alert = Alert(
-            id="test",
-            severity=AlertSeverity.MEDIUM,
-            title="Test Alert",
-            message="Test message",
-            timestamp=datetime.now()
-        )
-        
-        # Should not raise exception
-        channel(alert)
-
-    def test_webhook_alert_channel(self):
-        """Test generic webhook alert channel"""
-        webhook_url = "https://api.example.com/alerts"
-        headers = {"Authorization": "Bearer token"}
-        
-        channel = WebhookAlertChannel(webhook_url, headers)
-        assert channel.webhook_url == webhook_url
-        assert channel.headers == headers
-        
-        alert = Alert(
-            id="test",
-            severity=AlertSeverity.CRITICAL,
-            title="Test Alert",
-            message="Test message",
-            timestamp=datetime.now()
-        )
-        
-        # Should not raise exception
-        channel(alert)
 
 
 class TestMonitoringIntegration:
@@ -777,7 +915,12 @@ class TestMonitoringIntegration:
     def full_monitoring_setup(self):
         """Setup complete monitoring system"""
         metrics_collector = Mock(spec=MetricsCollector)
-        monitoring_service = ModelMonitoringService(metrics_collector)
+        
+        monitoring_service = ModelMonitoringService(metrics_collector=metrics_collector)
+        # Manually set prediction_history and feature_history for tests that rely on it
+        monitoring_service.prediction_history = {}
+        monitoring_service.feature_history = {}
+
         dashboard_service = MonitoringDashboardService(monitoring_service)
         retraining_service = AutomatedRetrainingService(monitoring_service)
         

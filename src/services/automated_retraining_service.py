@@ -7,7 +7,7 @@ and performance degradation alerts.
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Callable
+from typing import Dict, List, Optional, Any, Callable, Awaitable, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
 import json
@@ -20,6 +20,9 @@ from src.services.model_monitoring_service import (
     DriftType,
     AlertSeverity
 )
+if TYPE_CHECKING:
+    from src.services.monitoring.advanced_monitoring_system import AdvancedMonitoringSystem
+
 from src.ml.distributed_training import DistributedTrainingOrchestrator
 from src.ml.ray_tune_integration import RayTuneOptimizer
 from src.utils.logging import get_logger
@@ -136,6 +139,71 @@ class AutomatedRetrainingService:
         # Register for all models (this would be done per model in practice)
         # For now, we'll handle this in the drift detection method
         pass
+
+    def attach_advanced_monitoring(
+        self, advanced_monitoring: "AdvancedMonitoringSystem"
+    ) -> None:
+        """Attach an advanced monitoring system and register retraining handler."""
+        self._advanced_monitoring = advanced_monitoring
+        advanced_monitoring.register_retraining_handler(
+            self._handle_advanced_monitoring_retraining
+        )
+        logger.info("Advanced monitoring handler registered for automated retraining")
+
+    async def _handle_advanced_monitoring_retraining(
+        self, model_name: str, payload: Dict[str, Any]
+    ) -> Optional[str]:
+        """Schedule retraining based on advanced monitoring payload.
+
+        Expected payload keys:
+          - reason: str (e.g. 'performance_degradation', 'data_drift')
+          - triggered_at: datetime when the monitoring alert fired
+          - consecutive_failures: int indicating recent failure streak
+          - degradations: Dict[str, float] of metric degradations
+          - latest_metrics: Optional[Dict] with recent performance snapshot
+        """
+        if not self.config.enabled:
+            logger.info("Automated retraining is disabled; ignoring monitoring trigger for %s", model_name)
+            return None
+
+        if not self._check_cooldown(model_name):
+            logger.info("Model %s is in cooldown; skipping automated retraining trigger", model_name)
+            return None
+
+        if not self._check_minimum_samples(model_name):
+            logger.info("Not enough labeled samples to retrain model %s", model_name)
+            return None
+
+        triggered_at = payload.get('triggered_at')
+        created_at = triggered_at if isinstance(triggered_at, datetime) else datetime.now()
+
+        trigger_details = dict(payload)
+        if isinstance(triggered_at, datetime):
+            trigger_details['triggered_at'] = triggered_at.isoformat()
+
+        trigger = self._map_monitoring_reason_to_trigger(trigger_details.get('reason'))
+        job = RetrainingJob(
+            job_id=f"monitor_{model_name}_{created_at.timestamp()}",
+            model_name=model_name,
+            trigger=trigger,
+            trigger_details=trigger_details,
+            created_at=created_at
+        )
+
+        return await self.schedule_retraining(job)
+
+    def _map_monitoring_reason_to_trigger(self, reason: Optional[str]) -> RetrainingTrigger:
+        """Map monitoring reason strings to retraining triggers."""
+        normalized = (reason or 'performance_degradation').lower()
+        if normalized in {'data_drift', 'data-drift'}:
+            return RetrainingTrigger.DATA_DRIFT
+        if normalized in {'concept_drift', 'performance_drift'}:
+            return RetrainingTrigger.PERFORMANCE_DRIFT
+        if normalized == 'scheduled':
+            return RetrainingTrigger.SCHEDULED
+        if normalized == 'manual':
+            return RetrainingTrigger.MANUAL
+        return RetrainingTrigger.ALERT_THRESHOLD
 
     async def handle_drift_detection(self, model_name: str, 
                                    drift_result: DriftDetectionResult) -> Optional[str]:
