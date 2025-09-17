@@ -23,6 +23,7 @@ from .trading_endpoints import router as trading_router
 from .auth import router as auth_router
 from .usage_endpoints import router as usage_router
 from .monitoring_endpoints import router as monitoring_router
+from .ab_testing_endpoints import router as ab_testing_router
 from .model_serving import serving_service
 from .usage_middleware import UsageTrackingMiddleware, UsageLimitMiddleware
 from src.config.settings import get_settings
@@ -95,6 +96,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(usage_router)
     app.include_router(monitoring_router)
+    app.include_router(ab_testing_router)
     
     return app
 

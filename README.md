@@ -144,6 +144,57 @@ An AI-powered trading platform that combines CNN+LSTM models with reinforcement 
 - **Ensemble Improvement**: 95%+ MSE reduction through ensemble methods
 - **Code Quality**: Modular architecture with comprehensive error handling and performance tracking ✨ **NEW**
 
+## 📚 Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+### 🚀 Quick Start
+- **[Getting Started](docs/user-guide/getting-started.md)** - Get up and running in 5 minutes
+- **[Quick Start Guide](#quick-start-guide)** - Basic setup and first signal
+
+### 📖 User Guides
+- **[Getting Started](docs/user-guide/getting-started.md)** - Complete beginner's guide
+- **[Interpretability Guide](docs/user-guide/interpretability.md)** - Understanding AI decisions with SHAP and attention
+- **[Risk Management](docs/user-guide/risk-management.md)** - Managing trading risks and portfolio optimization
+
+### 🔧 Setup & Deployment
+- **[Local Development](docs/setup/local-development.md)** - Development environment setup
+- **[Cloud Deployment](docs/deployment/cloud-deployment.md)** - Production deployment with Kubernetes
+- **[Troubleshooting](docs/setup/troubleshooting.md)** - Common issues, solutions, and FAQ
+
+### 📋 API Reference
+- **[REST API Documentation](docs/api/README.md)** - Complete API guide with examples
+- **[OpenAPI Specification](docs/api/openapi-spec.yaml)** - Machine-readable API specification
+- **[Interactive API Docs](http://localhost:8000/docs)** - Swagger UI (when running locally)
+- **[WebSocket API](docs/api/README.md#websocket-api)** - Real-time data streaming
+
+### 🤖 Machine Learning
+- **[Model Training Guide](docs/ml/training-guide.md)** - Comprehensive CNN+LSTM and RL training tutorial
+- **[Training Tutorials](docs/ml/training-tutorials.md)** - Step-by-step model training examples
+- **[Best Practices](docs/ml/training-guide.md#best-practices)** - ML development guidelines and optimization
+
+### 🛠️ Development
+- **[Contributing Guide](docs/development/contributing.md)** - How to contribute to the project
+- **[Code Style Guide](docs/development/contributing.md#code-style-and-standards)** - Coding standards and conventions
+- **[Architecture Overview](docs/development/contributing.md#development-workflow)** - System design and patterns
+
+### 📊 Operations & Monitoring
+- **[Monitoring Guide](docs/setup/troubleshooting.md#debugging-tools)** - System monitoring and performance
+- **[Security Guide](docs/development/contributing.md#security)** - Security best practices
+- **[Performance Tuning](docs/setup/troubleshooting.md#performance-issues)** - Optimization techniques
+
+### 📝 Additional Resources
+- **[FAQ & Troubleshooting](docs/setup/troubleshooting.md#frequently-asked-questions-faq)** - Common questions and solutions
+- **[Contributing Guidelines](docs/CONTRIBUTING.md)** - Quick contribution overview
+- **[Changelog](docs/CHANGELOG.md)** - Version history and release notes
+
+**🔗 Quick Access:**
+- 🚀 [5-Minute Quick Start](docs/user-guide/getting-started.md#quick-start-5-minutes)
+- 🤖 [Train Your First Model](docs/ml/training-guide.md#quick-start)
+- 🔍 [Understand AI Decisions](docs/user-guide/interpretability.md#practical-usage-examples)
+- 🛠️ [API Integration](docs/api/README.md#quick-start)
+- ❓ [Get Help](docs/setup/troubleshooting.md#getting-help)
+
 ## Quick Navigation
 
 - [🚀 Latest Updates](#-latest-updates) - New features and improvements

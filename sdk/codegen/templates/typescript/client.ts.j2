@@ -1,0 +1,82 @@
+/**
+ * {{ api_spec.title }} TypeScript Client
+ * 
+ * Generated automatically from OpenAPI specification.
+ */
+
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { 
+  {% for model in api_spec.models %}{{ model.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+} from './types';
+
+export interface ClientConfig {
+  baseUrl?: string;
+  apiKey?: string;
+  timeout?: number;
+}
+
+export class {{ api_spec.title | pascal_case }}Client {
+  private httpClient: AxiosInstance;
+  
+  constructor(config: ClientConfig = {}) {
+    const {
+      baseUrl = '{{ api_spec.base_url }}',
+      apiKey,
+      timeout = 30000
+    } = config;
+    
+    this.httpClient = axios.create({
+      baseURL: baseUrl,
+      timeout,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey && { Authorization: `Bearer ${apiKey}` })
+      }
+    });
+    
+    // Response interceptor for error handling
+    this.httpClient.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          throw new Error('Authentication required');
+        } else if (error.response?.status === 403) {
+          throw new Error('Insufficient permissions');
+        } else if (error.response?.status === 422) {
+          throw new Error(`Validation error: ${JSON.stringify(error.response.data)}`);
+        } else if (error.response?.status === 429) {
+          throw new Error('Rate limit exceeded');
+        }
+        throw error;
+      }
+    );
+  }
+
+{% for endpoint in endpoints %}
+  /**
+   * {{ endpoint.description }}
+   */
+  async {{ endpoint.name | camel_case }}({% for param in endpoint.parameters %}{{ param.name | camel_case }}{% if not param.required %}?{% endif %}: {{ param.schema.type | type_mapping(Language.TYPESCRIPT) }}{% if not loop.last %}, {% endif %}{% endfor %}{% if endpoint.request_body %}{% if endpoint.parameters %}, {% endif %}requestBody: any{% endif %}): Promise<{% if endpoint.responses.get('200') %}{{ endpoint.responses['200'].content['application/json'].schema.type | type_mapping(Language.TYPESCRIPT) }}{% else %}any{% endif %}> {
+    {% if endpoint.parameters %}
+    const params: Record<string, any> = {};
+    {% for param in endpoint.parameters %}
+    {% if param.in == 'query' %}
+    if ({{ param.name | camel_case }} !== undefined) {
+      params['{{ param.name }}'] = {{ param.name | camel_case }};
+    }
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    
+    const response: AxiosResponse = await this.httpClient.request({
+      method: '{{ endpoint.method.lower() }}',
+      url: '{{ endpoint.path }}',
+      {% if endpoint.parameters %}params,{% endif %}
+      {% if endpoint.request_body %}data: requestBody,{% endif %}
+    });
+    
+    return response.data;
+  }
+
+{% endfor %}
+}

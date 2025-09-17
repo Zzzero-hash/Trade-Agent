@@ -1,0 +1,107 @@
+"""
+{{ api_spec.title }} Python Client
+
+Generated automatically from OpenAPI specification.
+"""
+
+import asyncio
+from typing import Dict, List, Optional, Any, Union
+import httpx
+
+from .models import *
+from .exceptions import *
+
+
+class {{ api_spec.title | pascal_case }}Client:
+    """{{ api_spec.description }}"""
+    
+    def __init__(self, base_url: str = "{{ api_spec.base_url }}", 
+                 api_key: Optional[str] = None, timeout: float = 30.0):
+        self.base_url = base_url.rstrip('/')
+        self.api_key = api_key
+        self.timeout = timeout
+        self._http_client: Optional[httpx.AsyncClient] = None
+    
+    async def __aenter__(self):
+        """Async context manager entry"""
+        await self._ensure_http_client()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit"""
+        await self.close()
+    
+    async def _ensure_http_client(self):
+        """Ensure HTTP client is initialized"""
+        if not self._http_client:
+            headers = {}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            
+            self._http_client = httpx.AsyncClient(
+                timeout=self.timeout,
+                headers=headers
+            )
+    
+    async def close(self):
+        """Close HTTP client"""
+        if self._http_client:
+            await self._http_client.aclose()
+            self._http_client = None
+    
+    async def _make_request(self, method: str, endpoint: str, 
+                          json_data: Optional[Dict] = None,
+                          params: Optional[Dict] = None) -> Dict[str, Any]:
+        """Make HTTP request"""
+        await self._ensure_http_client()
+        
+        url = f"{self.base_url}{endpoint}"
+        
+        try:
+            response = await self._http_client.request(
+                method=method,
+                url=url,
+                json=json_data,
+                params=params
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 401:
+                raise AuthenticationError("Authentication required")
+            elif response.status_code == 403:
+                raise AuthorizationError("Insufficient permissions")
+            elif response.status_code == 422:
+                error_data = response.json()
+                raise ValidationError(
+                    "Request validation failed",
+                    validation_errors=error_data.get("detail", [])
+                )
+            elif response.status_code == 429:
+                raise RateLimitError("Rate limit exceeded")
+            else:
+                raise APIError(f"API request failed: {response.status_code}")
+                
+        except httpx.RequestError as e:
+            raise NetworkError(f"Network error: {e}")
+
+{% for endpoint in endpoints %}
+    async def {{ endpoint.name | snake_case }}(self{% for param in endpoint.parameters %}, {{ param.name | snake_case }}: {{ param.schema.type | type_mapping(Language.PYTHON) }}{% if not param.required %} = None{% endif %}{% endfor %}{% if endpoint.request_body %}, request_body: Dict[str, Any]{% endif %}) -> {% if endpoint.responses.get('200') %}{{ endpoint.responses['200'].content['application/json'].schema.type | type_mapping(Language.PYTHON) }}{% else %}Dict[str, Any]{% endif %}:
+        """{{ endpoint.description }}"""
+        {% if endpoint.parameters %}
+        params = {}
+        {% for param in endpoint.parameters %}
+        {% if param.in == 'query' %}
+        if {{ param.name | snake_case }} is not None:
+            params["{{ param.name }}"] = {{ param.name | snake_case }}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        
+        {% if endpoint.method == 'GET' %}
+        return await self._make_request("{{ endpoint.method }}", "{{ endpoint.path }}"{% if endpoint.parameters %}, params=params{% endif %})
+        {% else %}
+        return await self._make_request("{{ endpoint.method }}", "{{ endpoint.path }}"{% if endpoint.request_body %}, json_data=request_body{% endif %}{% if endpoint.parameters %}, params=params{% endif %})
+        {% endif %}
+
+{% endfor %}

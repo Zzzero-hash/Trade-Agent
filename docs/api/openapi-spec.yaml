@@ -1,0 +1,606 @@
+openapi: 3.0.3
+info:
+  title: AI Trading Platform API
+  description: |
+    Comprehensive REST API for the AI Trading Platform providing access to trading signals, 
+    portfolio management, risk monitoring, and model serving capabilities.
+    
+    ## Features
+    - Multi-exchange trading support (Robinhood, OANDA, Coinbase)
+    - AI-powered trading signals with CNN+LSTM models
+    - Real-time market data streaming via WebSocket
+    - Portfolio optimization and risk management
+    - Model interpretability and explainability
+    
+    ## Authentication
+    All endpoints require JWT authentication. Obtain a token via `/auth/login`.
+    
+    ## Rate Limits
+    - Free Tier: 100 requests/hour, 5 signals/day
+    - Pro Tier: 1000 requests/hour, 100 signals/day
+    - Enterprise: Custom limits
+    
+  version: 1.0.0
+  contact:
+    name: AI Trading Platform Support
+    email: api-support@ai-trading-platform.com
+    url: https://docs.ai-trading-platform.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.ai-trading-platform.com
+    description: Production server
+  - url: https://sandbox-api.ai-trading-platform.com
+    description: Sandbox server
+  - url: http://localhost:8000
+    description: Local development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and receive JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh JWT token
+      description: Refresh an existing JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+
+  /api/v1/signals:
+    get:
+      tags:
+        - Trading Signals
+      summary: Get trading signals
+      description: Retrieve latest trading signals with optional filtering
+      parameters:
+        - name: symbol
+          in: query
+          description: Filter by symbol (e.g., AAPL, EUR/USD, BTC-USD)
+          schema:
+            type: string
+        - name: exchange
+          in: query
+          description: Filter by exchange
+          schema:
+            type: string
+            enum: [robinhood, oanda, coinbase]
+        - name: limit
+          in: query
+          description: Number of signals to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalsResponse'
+
+    post:
+      tags:
+        - Trading Signals
+      summary: Generate new signal
+      description: Generate a new trading signal for a specific symbol
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateSignalRequest'
+      responses:
+        '201':
+          description: Signal generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradingSignal'
+
+  /api/v1/signals/{signal_id}:
+    get:
+      tags:
+        - Trading Signals
+      summary: Get signal details
+      description: Retrieve detailed information about a specific signal
+      parameters:
+        - name: signal_id
+          in: path
+          required: true
+          description: Signal ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Signal details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradingSignalDetailed'
+
+  /api/v1/portfolio:
+    get:
+      tags:
+        - Portfolio
+      summary: Get portfolio status
+      description: Retrieve current portfolio positions and performance metrics
+      responses:
+        '200':
+          description: Portfolio information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Portfolio'
+
+  /api/v1/portfolio/rebalance:
+    post:
+      tags:
+        - Portfolio
+      summary: Rebalance portfolio
+      description: Trigger portfolio rebalancing with specified strategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RebalanceRequest'
+      responses:
+        '202':
+          description: Rebalancing initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RebalanceResponse'
+
+  /api/v1/risk/metrics:
+    get:
+      tags:
+        - Risk Management
+      summary: Get risk metrics
+      description: Retrieve current portfolio risk metrics and alerts
+      responses:
+        '200':
+          description: Risk metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskMetrics'
+
+  /api/v1/models/predict:
+    post:
+      tags:
+        - Model Serving
+      summary: Get model prediction
+      description: Generate prediction using specified model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictionRequest'
+      responses:
+        '200':
+          description: Prediction result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+
+  /api/v1/monitoring/health:
+    get:
+      tags:
+        - Monitoring
+      summary: Health check
+      description: Get system health status
+      security: []
+      responses:
+        '200':
+          description: System health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          example: "secure_password"
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+        token_type:
+          type: string
+          example: "bearer"
+        expires_in:
+          type: integer
+          example: 3600
+        user_id:
+          type: string
+          format: uuid
+        tier:
+          type: string
+          enum: [free, pro, enterprise]
+
+    RefreshRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+
+    TradingSignal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+          example: "AAPL"
+        exchange:
+          type: string
+          enum: [robinhood, oanda, coinbase]
+        signal_type:
+          type: string
+          enum: [buy, sell, hold]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.85
+        price_target:
+          type: number
+          example: 150.25
+        stop_loss:
+          type: number
+          example: 145.00
+        position_size:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.05
+        reasoning:
+          type: string
+          example: "Strong momentum with CNN confidence 0.87"
+        timestamp:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
+    TradingSignalDetailed:
+      allOf:
+        - $ref: '#/components/schemas/TradingSignal'
+        - type: object
+          properties:
+            model_version:
+              type: string
+              example: "cnn-lstm-v1.2.3"
+            features_used:
+              type: array
+              items:
+                type: string
+              example: ["rsi", "macd", "volume_profile"]
+            uncertainty:
+              type: number
+              example: 0.12
+            explanation:
+              type: object
+              properties:
+                shap_values:
+                  type: object
+                attention_weights:
+                  type: object
+
+    SignalsResponse:
+      type: object
+      properties:
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/TradingSignal'
+        total:
+          type: integer
+        page:
+          type: integer
+        has_more:
+          type: boolean
+
+    GenerateSignalRequest:
+      type: object
+      required:
+        - symbol
+        - exchange
+      properties:
+        symbol:
+          type: string
+          example: "AAPL"
+        exchange:
+          type: string
+          enum: [robinhood, oanda, coinbase]
+        timeframe:
+          type: string
+          enum: [1h, 4h, 1d]
+          default: "1h"
+        model_version:
+          type: string
+          default: "latest"
+
+    Portfolio:
+      type: object
+      properties:
+        total_value:
+          type: number
+          example: 100000.00
+        cash:
+          type: number
+          example: 25000.00
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Position'
+        performance:
+          $ref: '#/components/schemas/PerformanceMetrics'
+        risk_metrics:
+          $ref: '#/components/schemas/RiskMetrics'
+
+    Position:
+      type: object
+      properties:
+        symbol:
+          type: string
+        exchange:
+          type: string
+        quantity:
+          type: number
+        avg_price:
+          type: number
+        current_price:
+          type: number
+        market_value:
+          type: number
+        unrealized_pnl:
+          type: number
+        unrealized_pnl_pct:
+          type: number
+        weight:
+          type: number
+
+    PerformanceMetrics:
+      type: object
+      properties:
+        total_return:
+          type: number
+        sharpe_ratio:
+          type: number
+        max_drawdown:
+          type: number
+        volatility:
+          type: number
+
+    RiskMetrics:
+      type: object
+      properties:
+        portfolio_var:
+          type: number
+        portfolio_cvar:
+          type: number
+        max_drawdown:
+          type: number
+        beta:
+          type: number
+        correlation_matrix:
+          type: object
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskAlert'
+
+    RiskAlert:
+      type: object
+      properties:
+        type:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, error]
+        timestamp:
+          type: string
+          format: date-time
+
+    RebalanceRequest:
+      type: object
+      required:
+        - strategy
+      properties:
+        strategy:
+          type: string
+          enum: [equal_weight, risk_parity, momentum]
+        constraints:
+          type: object
+          properties:
+            max_position_size:
+              type: number
+            min_cash_ratio:
+              type: number
+
+    RebalanceResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        estimated_completion:
+          type: string
+          format: date-time
+
+    PredictionRequest:
+      type: object
+      required:
+        - model_type
+        - symbol
+        - features
+      properties:
+        model_type:
+          type: string
+          enum: [cnn_lstm, rl_ensemble]
+        symbol:
+          type: string
+        features:
+          type: object
+        model_version:
+          type: string
+          default: "latest"
+
+    PredictionResponse:
+      type: object
+      properties:
+        prediction:
+          type: object
+          properties:
+            signal:
+              type: string
+              enum: [buy, sell, hold]
+            confidence:
+              type: number
+            price_target:
+              type: number
+            uncertainty:
+              type: number
+        model_info:
+          type: object
+          properties:
+            version:
+              type: string
+            trained_at:
+              type: string
+              format: date-time
+            performance_metrics:
+              type: object
+        explanation:
+          type: object
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        services:
+          type: object
+          additionalProperties:
+            type: string
+        metrics:
+          type: object
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+        status_code:
+          type: integer
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: number
+
+tags:
+  - name: Authentication
+    description: User authentication and token management
+  - name: Trading Signals
+    description: AI-generated trading signals and recommendations
+  - name: Portfolio
+    description: Portfolio management and optimization
+  - name: Risk Management
+    description: Risk metrics and monitoring
+  - name: Model Serving
+    description: ML model predictions and serving
+  - name: Monitoring
+    description: System health and performance monitoring

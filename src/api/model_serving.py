@@ -439,22 +439,23 @@ class ModelServingService:
         start_time = time.time()
 
         try:
-            # A/B testing - determine model variant
+            # A/B testing - determine model variant using Ray Serve AB Test Manager
             ab_test_group = None
             model_type = request.model_type
             model_version = request.model_version or "latest"
 
-            # Check for active experiments
-            for exp_id, experiment in self.ab_test_manager.experiments.items():
-                if experiment["status"] == "active":
-                    variant = self.ab_test_manager.get_variant_for_request(
-                        exp_id, request_id
-                    )
-                    if variant:
+            # Import the global ab_test_manager from ray_serve module
+            from src.ml.ray_serve.ab_testing import ab_test_manager as ray_ab_manager
+            
+            # Check for active experiments in Ray Serve AB Test Manager
+            for exp_id, experiment in ray_ab_manager.experiments.items():
+                if experiment.status == "active":
+                    variant = ray_ab_manager.get_variant_for_request(exp_id, request_id)
+                    if variant and variant in experiment.variants:
                         ab_test_group = f"{exp_id}:{variant}"
-                        variant_config = experiment["model_variants"][variant]
-                        model_type = variant_config["model_type"]
-                        model_version = variant_config["version"]
+                        # Use the model path from the variant config as the version
+                        variant_config = experiment.variants[variant]
+                        model_version = variant_config.model_path
                         break
 
             # Get model from cache
@@ -519,7 +520,20 @@ class ModelServingService:
             # Record A/B test metrics
             if ab_test_group:
                 exp_id, variant = ab_test_group.split(":", 1)
-                self.ab_test_manager.record_metrics(exp_id, variant, processing_time)
+                from src.ml.ray_serve.ab_testing import ab_test_manager as ray_ab_manager
+                
+                # Calculate confidence score for A/B testing
+                avg_confidence = None
+                if confidence_scores:
+                    avg_confidence = sum(confidence_scores) / len(confidence_scores)
+                
+                ray_ab_manager.record_metrics(
+                    experiment_id=exp_id,
+                    variant_name=variant,
+                    latency_ms=processing_time,
+                    processing_time_ms=processing_time,
+                    confidence_score=avg_confidence
+                )
 
             # Record metrics
             metrics.increment_counter(
@@ -547,8 +561,13 @@ class ModelServingService:
             # Record error metrics
             if ab_test_group:
                 exp_id, variant = ab_test_group.split(":", 1)
-                self.ab_test_manager.record_metrics(
-                    exp_id, variant, processing_time, error=True
+                from src.ml.ray_serve.ab_testing import ab_test_manager as ray_ab_manager
+                ray_ab_manager.record_metrics(
+                    experiment_id=exp_id,
+                    variant_name=variant,
+                    latency_ms=processing_time,
+                    processing_time_ms=processing_time,
+                    error=True
                 )
 
             metrics.increment_counter(

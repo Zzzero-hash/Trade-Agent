@@ -14,7 +14,7 @@ from typing import Callable, Optional
 from fastapi import Request, Response, HTTPException, status
 from fastapi.security import HTTPBearer
 from starlette.middleware.base import BaseHTTPMiddleware
-import jwt
+from jose import jwt
 
 from src.models.usage_tracking import UsageType
 from src.services.usage_tracking_service import get_usage_tracking_service

@@ -616,7 +616,7 @@ class DriftDetectionContext:
         drift_type: DriftType, 
         model_name: str, 
         data: Dict[str, Any], 
-        threshold: float,
+        threshold: float = 0.05,
         method: Optional[DriftDetectionMethod] = None
     ) -> Optional[DriftDetectionResult]:
         """Detect drift using specified or appropriate strategy"""
@@ -640,6 +640,8 @@ class DriftDetectionContext:
                 return None
             
             # Perform drift detection
+            # Pass threshold to strategy
+            strategy.config.significance_level = threshold
             result = await strategy.detect_drift(reference_data, current_data, metadata)
             
             # Log result
@@ -665,6 +667,10 @@ class DriftDetectionContext:
         elif drift_type == DriftType.CONCEPT_DRIFT:
             # Use trading-specific method for concept drift in trading models
             return DriftDetectionMethod.TRADING_SPECIFIC
+        
+        elif drift_type == DriftType.DATA_QUALITY_DRIFT:
+            # Use PSI for data quality drift
+            return DriftDetectionMethod.POPULATION_STABILITY_INDEX
         
         elif drift_type == DriftType.DATA_DRIFT:
             # Use KS test as default for data drift
@@ -692,6 +698,24 @@ class DriftDetectionContext:
                     split_point = len(feature_history) // 2
                     reference_data = np.array(feature_history[:split_point])
                     current_data = np.array(feature_history[split_point:])
+        
+        elif drift_type == DriftType.CONCEPT_DRIFT:
+            # Extract feature data for concept drift
+            if 'feature_history' in data:
+                feature_history = data['feature_history']
+                if len(feature_history) >= 100:  # Minimum samples
+                    split_point = len(feature_history) // 2
+                    reference_data = np.array(feature_history[:split_point])
+                    current_data = np.array(feature_history[split_point:])
+        
+        elif drift_type == DriftType.DATA_QUALITY_DRIFT:
+            # Extract data quality metrics
+            if 'feature_history' in data:
+                feature_history = data['feature_history']
+                if len(feature_history) >= 50:
+                    # Use recent data for quality drift detection
+                    reference_data = np.array(feature_history[-100:-50])
+                    current_data = np.array(feature_history[-50:])
         
         elif drift_type == DriftType.PERFORMANCE_DRIFT:
             # Extract performance data

@@ -130,7 +130,7 @@ class TestVariantMetrics(unittest.TestCase):
         self.metrics.add_request(latency_ms=50.0, processing_time_ms=45.0, confidence_score=0.8)
         self.metrics.add_request(latency_ms=60.0, processing_time_ms=55.0, confidence_score=0.9)
         
-        self.assertEqual(self.metrics.avg_confidence, 0.85)
+        self.assertAlmostEqual(self.metrics.avg_confidence, 0.85, places=7)
 
 
 class TestStatisticalTestResult(unittest.TestCase):
@@ -474,7 +474,8 @@ class TestRayServeABTestManager(unittest.TestCase):
         experiment.end_time = current_time - timedelta(hours=2)
         
         # Clean up completed experiments
-        count = self.manager.cleanup_completed_experiments()
+        import asyncio
+        count = asyncio.run(self.manager.cleanup_completed_experiments())
         self.assertEqual(count, 1)
         self.assertEqual(len(self.manager.experiments), 0)
 

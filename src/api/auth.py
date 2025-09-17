@@ -13,7 +13,7 @@ from fastapi import Depends, HTTPException, status, APIRouter
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, EmailStr
 from passlib.context import CryptContext
-import jwt
+from jose import jwt
 from enum import Enum
 
 from src.config.settings import get_settings

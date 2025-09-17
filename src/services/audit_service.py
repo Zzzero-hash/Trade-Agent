@@ -1,763 +1,534 @@
 """
-Audit logging service for comprehensive tracking of trading decisions and user actions.
-
-This module provides:
-- Comprehensive audit logging for all trading activities
-- User action tracking and compliance monitoring
-- Tamper-proof audit trails with cryptographic integrity
-- Regulatory reporting and data export capabilities
-
-Requirements: 6.5, 9.5
+Audit logging system with immutable storage and compliance reporting.
 """
-
+import asyncio
+import logging
 import json
 import hashlib
-import hmac
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass, asdict
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any, Union
 from enum import Enum
-import uuid
-from pathlib import Path
+from uuid import UUID, uuid4
+from pydantic import BaseModel, Field
+import boto3
+from botocore.exceptions import ClientError
 
+from src.models.compliance import AuditLog, ActionResult, AuditEvent
 from src.config.settings import get_settings
-from src.utils.logging import get_logger
-from src.services.security_service import get_security_service, DataClassification
+from src.repositories.audit_repository import AuditRepository
+from src.services.encryption_service import EncryptionService
 
-logger = get_logger(__name__)
-
-
-class AuditEventType(str, Enum):
-    """Types of audit events."""
-    # User actions
-    USER_LOGIN = "user_login"
-    USER_LOGOUT = "user_logout"
-    USER_REGISTRATION = "user_registration"
-    USER_PROFILE_UPDATE = "user_profile_update"
-    PASSWORD_CHANGE = "password_change"
-
-    # Trading actions
-    TRADING_SIGNAL_GENERATED = "trading_signal_generated"
-    TRADING_SIGNAL_EXECUTED = "trading_signal_executed"
-    ORDER_PLACED = "order_placed"
-    ORDER_CANCELLED = "order_cancelled"
-    ORDER_FILLED = "order_filled"
-    POSITION_OPENED = "position_opened"
-    POSITION_CLOSED = "position_closed"
-
-    # Portfolio actions
-    PORTFOLIO_REBALANCED = "portfolio_rebalanced"
-    RISK_LIMIT_TRIGGERED = "risk_limit_triggered"
-    STOP_LOSS_TRIGGERED = "stop_loss_triggered"
-
-    # Model actions
-    MODEL_TRAINED = "model_trained"
-    MODEL_DEPLOYED = "model_deployed"
-    MODEL_PREDICTION = "model_prediction"
-    FEATURE_EXTRACTION = "feature_extraction"
-
-    # System actions
-    SYSTEM_STARTUP = "system_startup"
-    SYSTEM_SHUTDOWN = "system_shutdown"
-    CONFIGURATION_CHANGE = "configuration_change"
-    SECURITY_EVENT = "security_event"
-    ERROR_OCCURRED = "error_occurred"
-
-    # Compliance actions
-    REGULATORY_REPORT_GENERATED = "regulatory_report_generated"
-    AUDIT_EXPORT = "audit_export"
-    DATA_RETENTION_POLICY_APPLIED = "data_retention_policy_applied"
+logger = logging.getLogger(__name__)
 
 
-class AuditSeverity(str, Enum):
-    """Severity levels for audit events."""
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
+class AuditLevel(str, Enum):
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
     CRITICAL = "critical"
 
 
-@dataclass
-class AuditEvent:
-    """Audit event data structure."""
-    event_id: str
-    event_type: AuditEventType
-    timestamp: datetime
-    user_id: Optional[str]
-    session_id: Optional[str]
-    ip_address: Optional[str]
-    user_agent: Optional[str]
-    severity: AuditSeverity
-    description: str
-    details: Dict[str, Any]
-    system_component: str
-    correlation_id: Optional[str] = None
-    parent_event_id: Optional[str] = None
-    checksum: Optional[str] = None
+class AuditCategory(str, Enum):
+    AUTHENTICATION = "authentication"
+    AUTHORIZATION = "authorization"
+    DATA_ACCESS = "data_access"
+    TRADING = "trading"
+    COMPLIANCE = "compliance"
+    SYSTEM = "system"
+    SECURITY = "security"
+
+
+class AuditLogEntry(BaseModel):
+    log_id: UUID = Field(default_factory=uuid4)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    customer_id: Optional[UUID] = None
+    user_id: Optional[UUID] = None
+    session_id: Optional[str] = None
+    action: str
+    resource: str
+    category: AuditCategory
+    level: AuditLevel
+    result: ActionResult
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    request_id: Optional[str] = None
+    details: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
     
-    def __post_init__(self):
-        """Calculate checksum for tamper detection."""
-        if self.checksum is None:
-            self.checksum = self._calculate_checksum()
-
-    def _calculate_checksum(self) -> str:
-        """Calculate SHA-256 checksum of event data."""
-        # Create deterministic string representation
-        data_dict = asdict(self)
-        data_dict.pop('checksum', None)  # Remove checksum from calculation
-
-        # Sort keys for consistent ordering
-        sorted_data = json.dumps(data_dict, sort_keys=True, default=str)
-
-        return hashlib.sha256(sorted_data.encode('utf-8')).hexdigest()
-
-    def verify_integrity(self) -> bool:
-        """Verify event integrity using checksum."""
-        expected_checksum = self._calculate_checksum()
-        return hmac.compare_digest(self.checksum or "", expected_checksum)
+    def to_immutable_record(self) -> Dict[str, Any]:
+        """Convert to immutable record format."""
+        record = self.dict()
+        record["timestamp"] = self.timestamp.isoformat()
+        record["log_id"] = str(self.log_id)
+        if self.customer_id:
+            record["customer_id"] = str(self.customer_id)
+        if self.user_id:
+            record["user_id"] = str(self.user_id)
+        
+        # Calculate hash for integrity
+        record_str = json.dumps(record, sort_keys=True)
+        record["integrity_hash"] = hashlib.sha256(record_str.encode()).hexdigest()
+        
+        return record
 
 
-@dataclass
-class AuditQuery:
-    """Query parameters for audit log searches."""
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    event_types: Optional[List[AuditEventType]] = None
-    user_id: Optional[str] = None
-    severity: Optional[AuditSeverity] = None
-    system_component: Optional[str] = None
-    correlation_id: Optional[str] = None
-    limit: int = 1000
-    offset: int = 0
-
-
-class AuditService:
-    """Comprehensive audit logging service."""
+class ImmutableStorage:
+    """Immutable storage backend using AWS S3 with object lock."""
     
     def __init__(self):
         self.settings = get_settings()
-        self.security_service = get_security_service()
-        self._audit_log: List[AuditEvent] = []
-        self._session_events: Dict[str, List[str]] = {}
-        self._initialize_audit_storage()
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=self.settings.aws_access_key_id,
+            aws_secret_access_key=self.settings.aws_secret_access_key,
+            region_name=self.settings.aws_region
+        )
+        self.bucket_name = self.settings.audit_s3_bucket
+        self.encryption_service = EncryptionService()
     
-    def _initialize_audit_storage(self) -> None:
-        """Initialize audit log storage."""
-        # In production, this would connect to a secure audit database
-        # with write-only access and tamper detection
-
-        audit_dir = Path("logs/audit")
-        audit_dir.mkdir(parents=True, exist_ok=True)
-
-        logger.info("Audit service initialized")
+    async def store_audit_log(self, log_entry: AuditLogEntry) -> str:
+        """Store audit log in immutable S3 storage."""
+        try:
+            # Convert to immutable record
+            record = log_entry.to_immutable_record()
+            
+            # Encrypt sensitive data
+            encrypted_record = await self.encryption_service.encrypt_audit_data(record)
+            
+            # Generate S3 key with timestamp partitioning
+            timestamp = log_entry.timestamp
+            s3_key = (
+                f"audit-logs/"
+                f"year={timestamp.year}/"
+                f"month={timestamp.month:02d}/"
+                f"day={timestamp.day:02d}/"
+                f"hour={timestamp.hour:02d}/"
+                f"{log_entry.log_id}.json"
+            )
+            
+            # Store in S3 with object lock
+            response = self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=s3_key,
+                Body=json.dumps(encrypted_record),
+                ContentType='application/json',
+                Metadata={
+                    'category': log_entry.category.value,
+                    'level': log_entry.level.value,
+                    'customer_id': str(log_entry.customer_id) if log_entry.customer_id else '',
+                    'action': log_entry.action
+                },
+                ObjectLockMode='COMPLIANCE',
+                ObjectLockRetainUntilDate=datetime.utcnow() + timedelta(days=2555)  # 7 years
+            )
+            
+            logger.debug(f"Audit log stored in S3: {s3_key}")
+            return s3_key
+            
+        except ClientError as e:
+            logger.error(f"Failed to store audit log in S3: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error storing audit log: {str(e)}")
+            raise
     
-    def log_event(
+    async def retrieve_audit_logs(
         self,
-        event_type: AuditEventType,
-        description: str,
-        details: Optional[Dict[str, Any]] = None,
-        user_id: Optional[str] = None,
+        start_date: datetime,
+        end_date: datetime,
+        customer_id: Optional[UUID] = None,
+        category: Optional[AuditCategory] = None
+    ) -> List[Dict[str, Any]]:
+        """Retrieve audit logs from immutable storage."""
+        try:
+            logs = []
+            
+            # Generate S3 prefixes for date range
+            current_date = start_date.date()
+            end_date_only = end_date.date()
+            
+            while current_date <= end_date_only:
+                prefix = (
+                    f"audit-logs/"
+                    f"year={current_date.year}/"
+                    f"month={current_date.month:02d}/"
+                    f"day={current_date.day:02d}/"
+                )
+                
+                # List objects with prefix
+                paginator = self.s3_client.get_paginator('list_objects_v2')
+                pages = paginator.paginate(Bucket=self.bucket_name, Prefix=prefix)
+                
+                for page in pages:
+                    for obj in page.get('Contents', []):
+                        # Apply filters
+                        metadata = obj.get('Metadata', {})
+                        
+                        if customer_id and metadata.get('customer_id') != str(customer_id):
+                            continue
+                        
+                        if category and metadata.get('category') != category.value:
+                            continue
+                        
+                        # Retrieve and decrypt log
+                        response = self.s3_client.get_object(
+                            Bucket=self.bucket_name,
+                            Key=obj['Key']
+                        )
+                        
+                        encrypted_data = json.loads(response['Body'].read())
+                        decrypted_data = await self.encryption_service.decrypt_audit_data(encrypted_data)
+                        logs.append(decrypted_data)
+                
+                current_date = current_date.replace(day=current_date.day + 1)
+            
+            return logs
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve audit logs: {str(e)}")
+            raise
+
+
+class ComplianceReporter:
+    """Generate compliance reports from audit logs."""
+    
+    def __init__(self, immutable_storage: ImmutableStorage):
+        self.immutable_storage = immutable_storage
+    
+    async def generate_trading_activity_report(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        customer_id: Optional[UUID] = None
+    ) -> Dict[str, Any]:
+        """Generate trading activity report for compliance."""
+        try:
+            # Retrieve trading-related audit logs
+            logs = await self.immutable_storage.retrieve_audit_logs(
+                start_date=start_date,
+                end_date=end_date,
+                customer_id=customer_id,
+                category=AuditCategory.TRADING
+            )
+            
+            # Analyze trading patterns
+            report = {
+                "report_id": str(uuid4()),
+                "generated_at": datetime.utcnow().isoformat(),
+                "period": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat()
+                },
+                "customer_id": str(customer_id) if customer_id else "all",
+                "summary": {
+                    "total_trades": 0,
+                    "successful_trades": 0,
+                    "failed_trades": 0,
+                    "total_volume": 0.0,
+                    "unique_symbols": set(),
+                    "trading_days": set()
+                },
+                "details": []
+            }
+            
+            for log in logs:
+                if log.get("action") in ["place_order", "execute_trade", "cancel_order"]:
+                    report["summary"]["total_trades"] += 1
+                    
+                    if log.get("result") == "success":
+                        report["summary"]["successful_trades"] += 1
+                    else:
+                        report["summary"]["failed_trades"] += 1
+                    
+                    # Extract trading details
+                    details = log.get("details", {})
+                    if "symbol" in details:
+                        report["summary"]["unique_symbols"].add(details["symbol"])
+                    
+                    if "volume" in details:
+                        report["summary"]["total_volume"] += float(details.get("volume", 0))
+                    
+                    # Track trading days
+                    trade_date = datetime.fromisoformat(log["timestamp"]).date()
+                    report["summary"]["trading_days"].add(trade_date.isoformat())
+                    
+                    report["details"].append({
+                        "timestamp": log["timestamp"],
+                        "action": log["action"],
+                        "result": log["result"],
+                        "details": details
+                    })
+            
+            # Convert sets to lists for JSON serialization
+            report["summary"]["unique_symbols"] = list(report["summary"]["unique_symbols"])
+            report["summary"]["trading_days"] = list(report["summary"]["trading_days"])
+            
+            return report
+            
+        except Exception as e:
+            logger.error(f"Failed to generate trading activity report: {str(e)}")
+            raise
+    
+    async def generate_access_report(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        customer_id: Optional[UUID] = None
+    ) -> Dict[str, Any]:
+        """Generate data access report for compliance."""
+        try:
+            # Retrieve access-related audit logs
+            logs = await self.immutable_storage.retrieve_audit_logs(
+                start_date=start_date,
+                end_date=end_date,
+                customer_id=customer_id,
+                category=AuditCategory.DATA_ACCESS
+            )
+            
+            report = {
+                "report_id": str(uuid4()),
+                "generated_at": datetime.utcnow().isoformat(),
+                "period": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat()
+                },
+                "customer_id": str(customer_id) if customer_id else "all",
+                "summary": {
+                    "total_accesses": len(logs),
+                    "successful_accesses": 0,
+                    "failed_accesses": 0,
+                    "unique_resources": set(),
+                    "unique_ip_addresses": set()
+                },
+                "access_patterns": [],
+                "security_events": []
+            }
+            
+            for log in logs:
+                if log.get("result") == "success":
+                    report["summary"]["successful_accesses"] += 1
+                else:
+                    report["summary"]["failed_accesses"] += 1
+                    
+                    # Track security events
+                    if log.get("level") in ["warning", "error", "critical"]:
+                        report["security_events"].append({
+                            "timestamp": log["timestamp"],
+                            "action": log["action"],
+                            "resource": log["resource"],
+                            "ip_address": log.get("ip_address"),
+                            "details": log.get("details", {})
+                        })
+                
+                report["summary"]["unique_resources"].add(log.get("resource", ""))
+                if log.get("ip_address"):
+                    report["summary"]["unique_ip_addresses"].add(log["ip_address"])
+            
+            # Convert sets to lists
+            report["summary"]["unique_resources"] = list(report["summary"]["unique_resources"])
+            report["summary"]["unique_ip_addresses"] = list(report["summary"]["unique_ip_addresses"])
+            
+            return report
+            
+        except Exception as e:
+            logger.error(f"Failed to generate access report: {str(e)}")
+            raise
+
+
+class AuditService:
+    """Main audit service for logging and compliance reporting."""
+    
+    def __init__(self, audit_repo: AuditRepository):
+        self.audit_repo = audit_repo
+        self.immutable_storage = ImmutableStorage()
+        self.compliance_reporter = ComplianceReporter(self.immutable_storage)
+        
+        # Buffer for batch processing
+        self.log_buffer: List[AuditLogEntry] = []
+        self.buffer_size = 100
+        self.last_flush = datetime.utcnow()
+        self.flush_interval = timedelta(minutes=5)
+    
+    async def log_event(
+        self,
+        action: str,
+        resource: str,
+        category: AuditCategory,
+        level: AuditLevel = AuditLevel.INFO,
+        result: ActionResult = ActionResult.SUCCESS,
+        customer_id: Optional[UUID] = None,
+        user_id: Optional[UUID] = None,
         session_id: Optional[str] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
-        severity: AuditSeverity = AuditSeverity.MEDIUM,
-        system_component: str = "trading_platform",
-        correlation_id: Optional[str] = None,
-        parent_event_id: Optional[str] = None
-    ) -> str:
-        """
-        Log an audit event.
-
-        Args:
-            event_type: Type of event
-            description: Human-readable description
-            details: Additional event details
-            user_id: User ID if applicable
-            session_id: Session ID if applicable
-            ip_address: Client IP address
-            user_agent: Client user agent
-            severity: Event severity level
-            system_component: Component that generated the event
-            correlation_id: Correlation ID for related events
-            parent_event_id: Parent event ID for hierarchical events
-
-        Returns:
-            Event ID of the logged event
-        """
+        request_id: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> UUID:
+        """Log an audit event."""
         try:
-            event_id = str(uuid.uuid4())
-
-            # Mask sensitive data in details
-            safe_details = self.security_service.mask_sensitive_data(
-                details or {})
-
-            # Create audit event
-            event = AuditEvent(
-                event_id=event_id,
-                event_type=event_type,
-                timestamp=datetime.now(timezone.utc),
+            log_entry = AuditLogEntry(
+                action=action,
+                resource=resource,
+                category=category,
+                level=level,
+                result=result,
+                customer_id=customer_id,
                 user_id=user_id,
                 session_id=session_id,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                severity=severity,
-                description=description,
-                details=safe_details,
-                system_component=system_component,
-                correlation_id=correlation_id,
-                parent_event_id=parent_event_id
+                request_id=request_id,
+                details=details or {},
+                metadata=metadata or {}
             )
-
-            # Store event
-            self._audit_log.append(event)
-
-            # Track session events
-            if session_id:
-                if session_id not in self._session_events:
-                    self._session_events[session_id] = []
-                self._session_events[session_id].append(event_id)
-
-            # Persist to storage
-            self._persist_event(event)
-
-            # Log high-severity events to system log
-            if severity in [AuditSeverity.HIGH, AuditSeverity.CRITICAL]:
-                logger.warning("High-severity audit event: %s - %s",
-                               event_type.value, description)
-
-            return event_id
-
+            
+            # Add to buffer
+            self.log_buffer.append(log_entry)
+            
+            # Store in database for fast access
+            await self.audit_repo.store_audit_log(log_entry)
+            
+            # Store in immutable storage (async)
+            asyncio.create_task(self.immutable_storage.store_audit_log(log_entry))
+            
+            # Flush buffer if needed
+            if len(self.log_buffer) >= self.buffer_size:
+                await self._flush_buffer()
+            
+            logger.debug(f"Audit event logged: {action} on {resource}")
+            return log_entry.log_id
+            
         except Exception as e:
-            logger.error("Failed to log audit event: %s", e)
+            logger.error(f"Failed to log audit event: {str(e)}")
             raise
     
-    def _persist_event(self, event: AuditEvent) -> None:
-        """Persist audit event to secure storage."""
-        try:
-            # Encrypt sensitive audit data
-            event_data = asdict(event)
-            encrypted_data = self.security_service.encrypt_data(
-                event_data,
-                classification=DataClassification.CONFIDENTIAL
-            )
-
-            # Write to daily audit log file
-            date_str = event.timestamp.strftime("%Y-%m-%d")
-            audit_file = Path(f"logs/audit/audit_{date_str}.log")
-
-            # Append encrypted event to file
-            with open(audit_file, "ab") as f:
-                # Write encrypted data with metadata
-                log_entry = {
-                    'encrypted_data': encrypted_data.data.hex(),
-                    'key_id': encrypted_data.key_id,
-                    'algorithm': encrypted_data.algorithm,
-                    'timestamp': encrypted_data.timestamp.isoformat()
-                }
-                f.write(json.dumps(log_entry).encode('utf-8') + b'\n')
-
-        except Exception as e:
-            logger.error("Failed to persist audit event: %s", e)
-            # Don't raise - audit logging should not break main functionality
-    
-    def log_user_action(
+    async def log_authentication_event(
         self,
         action: str,
-        user_id: str,
-        session_id: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        result: ActionResult,
+        customer_id: Optional[UUID] = None,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
-    ) -> str:
-        """Log user action with appropriate event type."""
-        # Map common actions to event types
-        action_mapping = {
-            'login': AuditEventType.USER_LOGIN,
-            'logout': AuditEventType.USER_LOGOUT,
-            'register': AuditEventType.USER_REGISTRATION,
-            'profile_update': AuditEventType.USER_PROFILE_UPDATE,
-            'password_change': AuditEventType.PASSWORD_CHANGE
-        }
-
-        event_type = action_mapping.get(
-            action.lower(), AuditEventType.USER_PROFILE_UPDATE)
-
-        return self.log_event(
-            event_type=event_type,
-            description=f"User {action}: {user_id}",
-            details=details,
-            user_id=user_id,
-            session_id=session_id,
+        user_agent: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None
+    ) -> UUID:
+        """Log authentication-related event."""
+        level = AuditLevel.WARNING if result != ActionResult.SUCCESS else AuditLevel.INFO
+        
+        return await self.log_event(
+            action=action,
+            resource="authentication",
+            category=AuditCategory.AUTHENTICATION,
+            level=level,
+            result=result,
+            customer_id=customer_id,
             ip_address=ip_address,
             user_agent=user_agent,
-            severity=AuditSeverity.LOW,
-            system_component="user_management"
+            details=details
         )
     
-    def log_trading_action(
+    async def log_trading_event(
         self,
         action: str,
-        user_id: str,
+        result: ActionResult,
+        customer_id: UUID,
         symbol: str,
-        details: Dict[str, Any],
-        session_id: Optional[str] = None,
-        correlation_id: Optional[str] = None
-    ) -> str:
-        """Log trading action with high severity."""
-        # Map trading actions to event types
-        action_mapping = {
-            'signal_generated': AuditEventType.TRADING_SIGNAL_GENERATED,
-            'signal_executed': AuditEventType.TRADING_SIGNAL_EXECUTED,
-            'order_placed': AuditEventType.ORDER_PLACED,
-            'order_cancelled': AuditEventType.ORDER_CANCELLED,
-            'order_filled': AuditEventType.ORDER_FILLED,
-            'position_opened': AuditEventType.POSITION_OPENED,
-            'position_closed': AuditEventType.POSITION_CLOSED
-        }
-
-        event_type = action_mapping.get(
-            action.lower(), AuditEventType.TRADING_SIGNAL_EXECUTED)
-
-        # Add symbol to details
-        trading_details = details.copy()
-        trading_details['symbol'] = symbol
-
-        return self.log_event(
-            event_type=event_type,
-            description=f"Trading {action}: {symbol} for user {user_id}",
-            details=trading_details,
-            user_id=user_id,
-            session_id=session_id,
-            severity=AuditSeverity.HIGH,
-            system_component="trading_engine",
-            correlation_id=correlation_id
+        details: Optional[Dict[str, Any]] = None
+    ) -> UUID:
+        """Log trading-related event."""
+        level = AuditLevel.ERROR if result != ActionResult.SUCCESS else AuditLevel.INFO
+        
+        trading_details = {"symbol": symbol}
+        if details:
+            trading_details.update(details)
+        
+        return await self.log_event(
+            action=action,
+            resource=f"trading/{symbol}",
+            category=AuditCategory.TRADING,
+            level=level,
+            result=result,
+            customer_id=customer_id,
+            details=trading_details
         )
     
-    def log_model_action(
+    async def log_compliance_event(
         self,
         action: str,
-        model_name: str,
-        details: Dict[str, Any],
-        user_id: Optional[str] = None,
-        correlation_id: Optional[str] = None
-    ) -> str:
-        """Log ML model action."""
-        # Map model actions to event types
-        action_mapping = {
-            'trained': AuditEventType.MODEL_TRAINED,
-            'deployed': AuditEventType.MODEL_DEPLOYED,
-            'prediction': AuditEventType.MODEL_PREDICTION,
-            'feature_extraction': AuditEventType.FEATURE_EXTRACTION
-        }
+        result: ActionResult,
+        customer_id: Optional[UUID] = None,
+        details: Optional[Dict[str, Any]] = None
+    ) -> UUID:
+        """Log compliance-related event."""
+        level = AuditLevel.CRITICAL if result != ActionResult.SUCCESS else AuditLevel.INFO
         
-        event_type = action_mapping.get(action.lower(), AuditEventType.MODEL_PREDICTION)
-        
-        # Add model name to details
-        model_details = details.copy()
-        model_details['model_name'] = model_name
-        
-        return self.log_event(
-            event_type=event_type,
-            description=f"Model {action}: {model_name}",
-            details=model_details,
-            user_id=user_id,
-            severity=AuditSeverity.MEDIUM,
-            system_component="ml_engine",
-            correlation_id=correlation_id
+        return await self.log_event(
+            action=action,
+            resource="compliance",
+            category=AuditCategory.COMPLIANCE,
+            level=level,
+            result=result,
+            customer_id=customer_id,
+            details=details
         )
     
-    def log_security_event(
+    async def generate_compliance_report(
         self,
-        event_description: str,
-        details: Dict[str, Any],
-        user_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        severity: AuditSeverity = AuditSeverity.HIGH
-    ) -> str:
-        """Log security-related event."""
-        return self.log_event(
-            event_type=AuditEventType.SECURITY_EVENT,
-            description=event_description,
-            details=details,
-            user_id=user_id,
-            ip_address=ip_address,
-            severity=severity,
-            system_component="security_service"
-        )
-    
-    def query_events(self, query: AuditQuery) -> List[AuditEvent]:
-        """
-        Query audit events based on criteria.
-        
-        Args:
-            query: Query parameters
-            
-        Returns:
-            List of matching audit events
-        """
+        report_type: str,
+        start_date: datetime,
+        end_date: datetime,
+        customer_id: Optional[UUID] = None
+    ) -> Dict[str, Any]:
+        """Generate compliance report."""
         try:
-            filtered_events = []
-            
-            for event in self._audit_log:
-                # Apply filters
-                if query.start_time and event.timestamp < query.start_time:
-                    continue
-                
-                if query.end_time and event.timestamp > query.end_time:
-                    continue
-                
-                if query.event_types and event.event_type not in query.event_types:
-                    continue
-                
-                if query.user_id and event.user_id != query.user_id:
-                    continue
-                
-                if query.severity and event.severity != query.severity:
-                    continue
-                
-                if query.system_component and event.system_component != query.system_component:
-                    continue
-                
-                if query.correlation_id and event.correlation_id != query.correlation_id:
-                    continue
-                
-                filtered_events.append(event)
-            
-            # Sort by timestamp (newest first)
-            filtered_events.sort(key=lambda x: x.timestamp, reverse=True)
-            
-            # Apply pagination
-            start_idx = query.offset
-            end_idx = start_idx + query.limit
-            
-            return filtered_events[start_idx:end_idx]
-            
-        except Exception as e:
-            logger.error("Failed to query audit events: %s", e)
-            raise
-    
-    def get_user_activity(
-        self,
-        user_id: str,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
-    ) -> List[AuditEvent]:
-        """Get all activity for a specific user."""
-        query = AuditQuery(
-            user_id=user_id,
-            start_time=start_time,
-            end_time=end_time,
-            limit=10000  # Large limit for comprehensive view
-        )
-        
-        return self.query_events(query)
-    
-    def get_trading_activity(
-        self,
-        user_id: Optional[str] = None,
-        symbol: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
-    ) -> List[AuditEvent]:
-        """Get trading activity with optional filters."""
-        trading_event_types = [
-            AuditEventType.TRADING_SIGNAL_GENERATED,
-            AuditEventType.TRADING_SIGNAL_EXECUTED,
-            AuditEventType.ORDER_PLACED,
-            AuditEventType.ORDER_CANCELLED,
-            AuditEventType.ORDER_FILLED,
-            AuditEventType.POSITION_OPENED,
-            AuditEventType.POSITION_CLOSED
-        ]
-        
-        query = AuditQuery(
-            event_types=trading_event_types,
-            user_id=user_id,
-            start_time=start_time,
-            end_time=end_time,
-            limit=10000
-        )
-        
-        events = self.query_events(query)
-        
-        # Filter by symbol if specified
-        if symbol:
-            events = [
-                event for event in events
-                if event.details.get('symbol') == symbol
-            ]
-        
-        return events
-    
-    def verify_audit_integrity(
-            self, event_ids: Optional[List[str]] = None) -> Dict[str, Any]:
-        """
-        Verify integrity of audit events.
-
-        Args:
-            event_ids: Specific event IDs to verify (all if None)
-
-        Returns:
-            Integrity verification results
-        """
-        results: Dict[str, Any] = {
-            'total_events': 0,
-            'verified_events': 0,
-            'corrupted_events': [],
-            'integrity_score': 0.0
-        }
-
-        events_to_check = (
-            [e for e in self._audit_log if e.event_id in event_ids]
-            if event_ids
-            else self._audit_log
-        )
-
-        for event in events_to_check:
-            results['total_events'] += 1
-
-            if event.verify_integrity():
-                results['verified_events'] += 1
+            if report_type == "trading_activity":
+                return await self.compliance_reporter.generate_trading_activity_report(
+                    start_date, end_date, customer_id
+                )
+            elif report_type == "data_access":
+                return await self.compliance_reporter.generate_access_report(
+                    start_date, end_date, customer_id
+                )
             else:
-                results['corrupted_events'].append({
-                    'event_id': event.event_id,
-                    'timestamp': event.timestamp.isoformat(),
-                    'event_type': event.event_type.value
-                })
-
-        # Calculate integrity score
-        if results['total_events'] > 0:
-            results['integrity_score'] = (
-                results['verified_events'] / results['total_events'])
-
-        return results
-    
-    def export_audit_data(
-        self,
-        query: AuditQuery,
-        export_format: str = "json",
-        include_sensitive: bool = False
-    ) -> Dict[str, Any]:
-        """
-        Export audit data for regulatory compliance.
-
-        Args:
-            query: Query parameters for data selection
-            export_format: Export format (json, csv)
-            include_sensitive: Whether to include sensitive data
-
-        Returns:
-            Export metadata and data location
-        """
-        try:
-            events = self.query_events(query)
-
-            # Create export metadata
-            export_id = str(uuid.uuid4())
-            export_timestamp = datetime.now(timezone.utc)
-
-            export_data = {
-                'export_id': export_id,
-                'export_timestamp': export_timestamp.isoformat(),
-                'query_parameters': asdict(query),
-                'total_events': len(events),
-                'format': export_format,
-                'events': []
-            }
-
-            # Process events for export
-            for event in events:
-                event_dict = asdict(event)
-
-                # Remove sensitive data if not requested
-                if not include_sensitive:
-                    event_dict['details'] = (
-                        self.security_service.mask_sensitive_data(
-                            event_dict['details']
-                        ))
-
-                export_data['events'].append(event_dict)
-
-            # Save export file
-            export_filename = (
-                f"audit_export_{export_id}_"
-                f"{export_timestamp.strftime('%Y%m%d_%H%M%S')}.{export_format}")
-            export_path = Path(f"logs/exports/{export_filename}")
-            export_path.parent.mkdir(parents=True, exist_ok=True)
-
-            with open(export_path, 'w', encoding='utf-8') as f:
-                if export_format == 'json':
-                    json.dump(export_data, f, indent=2, default=str)
-                else:
-                    # CSV format would require additional processing
-                    raise ValueError(f"Unsupported export format: {export_format}")
-
-            # Log export action
-            self.log_event(
-                event_type=AuditEventType.AUDIT_EXPORT,
-                description=f"Audit data exported: {export_filename}",
-                details={
-                    'export_id': export_id,
-                    'total_events': len(events),
-                    'format': export_format,
-                    'include_sensitive': include_sensitive
-                },
-                severity=AuditSeverity.HIGH,
-                system_component="audit_service"
-            )
-
-            return {
-                'export_id': export_id,
-                'filename': export_filename,
-                'path': str(export_path),
-                'total_events': len(events),
-                'timestamp': export_timestamp.isoformat()
-            }
-
+                raise ValueError(f"Unknown report type: {report_type}")
+                
         except Exception as e:
-            logger.error("Failed to export audit data: %s", e)
+            logger.error(f"Failed to generate compliance report: {str(e)}")
             raise
     
-    def get_compliance_report(
-        self,
-        start_time: datetime,
-        end_time: datetime,
-        user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Generate compliance report for regulatory requirements.
-
-        Args:
-            start_time: Report start time
-            end_time: Report end time
-            user_id: Specific user ID (all users if None)
-
-        Returns:
-            Comprehensive compliance report
-        """
+    async def _flush_buffer(self) -> None:
+        """Flush log buffer to storage."""
+        if not self.log_buffer:
+            return
+        
         try:
-            query = AuditQuery(
-                start_time=start_time,
-                end_time=end_time,
-                user_id=user_id,
-                limit=100000  # Large limit for comprehensive report
-            )
-
-            events = self.query_events(query)
-
-            # Generate report statistics
-            unique_users = set()
-            events_by_type: Dict[str, int] = {}
-            events_by_severity: Dict[str, int] = {}
-            trading_activity = []
-            security_incidents = []
-            user_activity: Dict[str, Dict[str, Any]] = {}
-
-            # Process events for report
-            for event in events:
-                # Count by type
-                event_type = event.event_type.value
-                events_by_type[event_type] = (
-                    events_by_type.get(event_type, 0) + 1
-                )
-
-                # Count by severity
-                severity = event.severity.value
-                events_by_severity[severity] = (
-                    events_by_severity.get(severity, 0) + 1
-                )
-
-                # Track unique users
-                if event.user_id:
-                    unique_users.add(event.user_id)
-
-                # Collect trading activity
-                if event.event_type in [
-                    AuditEventType.ORDER_PLACED,
-                    AuditEventType.ORDER_FILLED,
-                    AuditEventType.POSITION_OPENED,
-                    AuditEventType.POSITION_CLOSED
-                ]:
-                    trading_activity.append({
-                        'timestamp': event.timestamp.isoformat(),
-                        'user_id': event.user_id,
-                        'action': event.event_type.value,
-                        'symbol': event.details.get('symbol'),
-                        'amount': event.details.get('amount'),
-                        'price': event.details.get('price')
-                    })
-
-                # Collect security incidents
-                if event.event_type == AuditEventType.SECURITY_EVENT:
-                    security_incidents.append({
-                        'timestamp': event.timestamp.isoformat(),
-                        'description': event.description,
-                        'severity': event.severity.value,
-                        'user_id': event.user_id,
-                        'ip_address': event.ip_address
-                    })
-
-                # Track user activity
-                if event.user_id:
-                    if event.user_id not in user_activity:
-                        user_activity[event.user_id] = {
-                            'total_events': 0,
-                            'login_count': 0,
-                            'trading_actions': 0,
-                            'last_activity': None
-                        }
-
-                    user_stats = user_activity[event.user_id]
-                    user_stats['total_events'] += 1
-
-                    if event.event_type == AuditEventType.USER_LOGIN:
-                        user_stats['login_count'] += 1
-
-                    if (event.event_type.value.startswith('trading_') or
-                            event.event_type.value.startswith('order_')):
-                        user_stats['trading_actions'] += 1
-
-                    if (not user_stats['last_activity'] or
-                            event.timestamp.isoformat() > user_stats['last_activity']):
-                        user_stats['last_activity'] = event.timestamp.isoformat()
-
-            report = {
-                'report_id': str(uuid.uuid4()),
-                'generated_at': datetime.now(timezone.utc).isoformat(),
-                'period': {
-                    'start_time': start_time.isoformat(),
-                    'end_time': end_time.isoformat()
-                },
-                'user_id': user_id,
-                'summary': {
-                    'total_events': len(events),
-                    'events_by_type': events_by_type,
-                    'events_by_severity': events_by_severity,
-                    'unique_users': len(unique_users),
-                    'trading_volume': 0,
-                    'security_events': len(security_incidents)
-                },
-                'trading_activity': trading_activity,
-                'security_incidents': security_incidents,
-                'user_activity': user_activity
-            }
-
-            return report
-
+            # Process buffer
+            buffer_copy = self.log_buffer.copy()
+            self.log_buffer.clear()
+            self.last_flush = datetime.utcnow()
+            
+            # Store in immutable storage (batch)
+            tasks = [
+                self.immutable_storage.store_audit_log(log_entry)
+                for log_entry in buffer_copy
+            ]
+            await asyncio.gather(*tasks, return_exceptions=True)
+            
+            logger.debug(f"Flushed {len(buffer_copy)} audit logs to immutable storage")
+            
         except Exception as e:
-            logger.error("Failed to generate compliance report: %s", e)
-            raise
-
-
-# Global audit service instance
-_audit_service: Optional[AuditService] = None
-
-
-def get_audit_service() -> AuditService:
-    """Get global audit service instance."""
-    global _audit_service
-
-    if _audit_service is None:
-        _audit_service = AuditService()
-
-    return _audit_service
+            logger.error(f"Failed to flush audit buffer: {str(e)}")
+    
+    async def periodic_flush(self) -> None:
+        """Periodic flush of audit buffer."""
+        while True:
+            try:
+                await asyncio.sleep(60)  # Check every minute
+                
+                now = datetime.utcnow()
+                if (now - self.last_flush) >= self.flush_interval:
+                    await self._flush_buffer()
+                    
+            except Exception as e:
+                logger.error(f"Error in periodic flush: {str(e)}")
+                await asyncio.sleep(60)

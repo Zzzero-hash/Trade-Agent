@@ -1,31 +1,33 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/` contains the FastAPI entrypoint `main.py` plus domain packages: `api/` (routes), `services/` (orchestration), `ml/` (models), and supporting modules in `repositories/`, `utils/`, and `connection_pool/`.
-- `tests/` mirrors backend modules with `test_*.py`, helpers in `tests/test_helpers/`, and orchestration scripts like `run_integration_tests.py`.
-- `frontend/` provides the Next.js dashboard (TypeScript under `app/` and `components/`, Jest setup in `__tests__/`).
-- Deployment assets live in `docker/`, `helm/`, and `k8s/`; runtime configuration stays in `config/*.yaml`; automation scripts (Bash and PowerShell) live in `scripts/`.
+- `src/main.py` exposes the FastAPI bootstrapper; route handlers stay in `src/api`, orchestration in `src/services`, ML artifacts under `src/ml`, with shared helpers in `src/repositories`, `src/utils`, and `src/connection_pool`.
+- `tests/` mirrors backend packages with `test_*.py`, plus helpers in `tests/test_helpers/` and orchestration scripts like `tests/run_integration_tests.py`.
+- `frontend/` hosts the Next.js dashboard (`app/`, `components/`, `__tests__/`), while deployment and automation assets live in `docker/`, `helm/`, `k8s/`, `config/`, and `scripts/`.
 
 ## Build, Test, and Development Commands
-- Backend setup: `python -m venv .venv`, `pip install -r requirements.txt`, then `uvicorn src.api.app:app --reload`.
-- Quality gates: `black src tests`, `flake8 src tests`, and `mypy src` match `.github/workflows/ci-cd.yml`.
-- Tests: `pytest tests -v` for quick checks, `pytest tests --cov=src --cov-report=html` before merging, `python tests/run_integration_tests.py` for service coordination.
-- Frontend: inside `frontend/`, run `npm install`, `npm run dev`, and `npm test` or `npm run test:watch`.
-- Full stack validation: `docker-compose up --build` runs API, data services, and monitoring locally.
+- `python -m venv .venv` then `pip install -r requirements.txt` to bootstrap backend dependencies.
+- `uvicorn src.api.app:app --reload` starts the API with live reload.
+- `pytest tests -v` for quick feedback; `pytest tests --cov=src --cov-report=html` before merging.
+- `python tests/run_integration_tests.py` coordinates multi-service checks.
+- Inside `frontend/`, run `npm install`, `npm run dev`, and `npm test` (or `npm run test:watch`) for UI development.
+- `docker-compose up --build` spins up the full stack locally.
 
 ## Coding Style & Naming Conventions
-- Use PEP 8, four-space indentation, `snake_case` modules and functions, `CamelCase` classes, and keep async endpoints grouped in `src/api`.
-- Run `black` before commits, keep `flake8` clean, and resolve `mypy` warnings; notebooks or experiments stay in `docs/` or `checkpoints/`.
-- TypeScript relies on `npm run lint`; React components use PascalCase filenames, hooks follow `useFeature.ts`, and shared utilities belong in `frontend/lib/`.
+- Follow PEP 8 with four-space indents and `snake_case` modules/functions; classes use `CamelCase`.
+- Format Python via `black src tests`; lint with `flake8 src tests`; maintain `mypy src` cleanliness.
+- TypeScript relies on `npm run lint`; components adopt PascalCase filenames, shared utilities live in `frontend/lib/`, and hooks use `useFeature.ts`.
 
 ## Testing Guidelines
-- Store new backend suites alongside features in `tests/` with explicit names (`test_risk_management_models.py`), reusing fixtures from `conftest.py`.
-- Tag slow or externally dependent tests so they can be deselected; review coverage via `pytest tests --cov=src` and `htmlcov/index.html`.
-- Frontend suites stay in `frontend/__tests__/` using Testing Library; refresh snapshots whenever UI contracts change.
-- After major refactors, run `pytest tests/smoke_tests.py` and document notable findings in `docs/`.
+- Place new suites beside the feature (e.g., `tests/test_risk_management_models.py`) and reuse fixtures from `tests/conftest.py`.
+- Tag slow or external tests so they can be deselected; review coverage using `htmlcov/index.html`.
+- Refresh frontend snapshots whenever UI contracts shift.
 
 ## Commit & Pull Request Guidelines
-- Commits follow conventional prefixes (`feat:`, `refactor:`, `fix:`) with imperative subjects under 72 characters.
-- PRs should link issues, describe impact, and flag API or config updates; include terminal output or screenshots for UX changes.
-- Confirm CI locally: run lint, backend/frontend tests, and any config migrations before requesting review.
-- Update `README.md`, `docs/`, and sample configs whenever behavior or operational procedures change.
+- Use conventional commits (`feat:`, `fix:`, `refactor:`) with imperative subjects under 72 characters.
+- PRs should link issues, summarize impact, call out API or config changes, and attach relevant terminal output or UI screenshots.
+- Verify CI locally by running formatters, linters, backend/frontend tests, and any config migrations before requesting review.
+
+## Deployment & Configuration Notes
+- Runtime settings live under `config/*.yaml`; update sample configs when toggling behavior.
+- Container or Helm updates belong in `docker/`, `helm/`, and `k8s/`; keep scripts in `scripts/` executable and documented.

@@ -1,0 +1,99 @@
+# Production Environment Configuration Example
+# Copy this file to terraform.tfvars and customize the values
+
+# Basic Configuration
+aws_region  = "us-east-1"
+owner       = "DevOps Team"
+cost_center = "Engineering"
+
+# EKS Configuration
+kubernetes_version = "1.28"
+cluster_endpoint_public_access_cidrs = ["10.0.0.0/8", "172.16.0.0/12"]  # Restrict to private networks
+node_group_ssh_key = "production-eks-key"  # Create this key pair in AWS first
+
+# Production Node Groups
+node_groups = {
+  general = {
+    capacity_type  = "ON_DEMAND"
+    instance_types = ["m5.xlarge"]
+    ami_type       = "AL2_x86_64"
+    disk_size      = 100
+    desired_size   = 3
+    max_size       = 10
+    min_size       = 2
+    labels = {
+      role = "general"
+    }
+    taints = []
+  }
+  ml_workload = {
+    capacity_type  = "ON_DEMAND"
+    instance_types = ["c5.4xlarge"]
+    ami_type       = "AL2_x86_64"
+    disk_size      = 200
+    desired_size   = 2
+    max_size       = 8
+    min_size       = 1
+    labels = {
+      role = "ml-workload"
+    }
+    taints = [
+      {
+        key    = "ml-workload"
+        value  = "true"
+        effect = "NO_SCHEDULE"
+      }
+    ]
+  }
+  trading_engine = {
+    capacity_type  = "ON_DEMAND"
+    instance_types = ["c5.2xlarge"]
+    ami_type       = "AL2_x86_64"
+    disk_size      = 100
+    desired_size   = 3
+    max_size       = 6
+    min_size       = 2
+    labels = {
+      role = "trading-engine"
+    }
+    taints = [
+      {
+        key    = "trading-engine"
+        value  = "true"
+        effect = "NO_SCHEDULE"
+      }
+    ]
+  }
+}
+
+# RDS Configuration
+postgres_version                = "15.4"
+rds_instance_class             = "db.r6g.2xlarge"
+rds_allocated_storage          = 500
+rds_max_allocated_storage      = 5000
+database_name                  = "trading_platform"
+rds_master_username            = "postgres"
+rds_multi_az                   = true
+rds_backup_retention_period    = 30
+rds_deletion_protection        = true
+rds_create_read_replica        = true
+rds_read_replica_instance_class = "db.r6g.xlarge"
+
+# ElastiCache Configuration
+elasticache_node_type                  = "cache.r7g.2xlarge"
+redis_version                          = "7.0"
+elasticache_num_cache_clusters         = 3
+elasticache_automatic_failover_enabled = true
+elasticache_multi_az_enabled           = true
+elasticache_auth_token_enabled         = true
+elasticache_snapshot_retention_limit   = 7
+
+# S3 Configuration
+s3_enable_cross_region_replication = true
+s3_replication_bucket_name         = "production-trading-platform-compliance-replica"
+s3_replication_kms_key_id          = ""  # Will be created in the replica region
+
+# Monitoring Configuration
+alarm_actions = [
+  # "arn:aws:sns:us-east-1:123456789012:production-alerts"
+]

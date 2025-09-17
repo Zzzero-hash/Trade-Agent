@@ -131,7 +131,7 @@ class DataBuffer:
             sorted_data = sorted(self.data, key=lambda x: x['access_count'])
             items_to_remove = int(len(self.data) * 0.2)  # Remove 20%
             
-            for _ in range(items_to_remove):
+            for _ in range(min(items_to_remove, len(sorted_data))):
                 if sorted_data:
                     item_to_remove = sorted_data.pop(0)
                     try:
@@ -450,9 +450,14 @@ class MonitoringResourceManager:
                     logger.error(f"Error in resource monitoring loop: {e}")
                     await asyncio.sleep(60)  # Shorter sleep on error
         
-        # Start monitoring task
-        asyncio.create_task(monitor_loop())
-        logger.info("Background resource monitoring started")
+        # Start monitoring task only if event loop is running
+        try:
+            asyncio.get_running_loop()
+            asyncio.create_task(monitor_loop())
+            logger.info("Background resource monitoring started")
+        except RuntimeError:
+            # No event loop running, defer initialization
+            logger.info("Deferred resource monitoring initialization - no event loop running")
     
     def clear_all_buffers(self) -> None:
         """Clear all data buffers"""

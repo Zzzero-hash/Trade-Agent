@@ -1,0 +1,243 @@
+# Security and Compliance Configuration
+
+# KYC/AML Configuration
+kyc:
+  providers:
+    jumio:
+      api_token: ${JUMIO_API_TOKEN}
+      api_secret: ${JUMIO_API_SECRET}
+      base_url: "https://netverify.com/api/netverify/v2"
+      callback_url: "${BASE_URL}/api/v1/kyc/jumio/callback"
+    onfido:
+      api_token: ${ONFIDO_API_TOKEN}
+      base_url: "https://api.onfido.com/v3.6"
+      webhook_token: ${ONFIDO_WEBHOOK_TOKEN}
+  
+  # AML Screening Configuration
+  aml:
+    ofac_list_update_interval_hours: 24
+    pep_list_update_interval_hours: 24
+    screening_timeout_seconds: 30
+    auto_flag_threshold: 0.8
+
+# Audit Configuration
+audit:
+  enable_immutable_storage: true
+  retention_days: 2555  # 7 years for financial compliance
+  hash_algorithm: "sha256"
+  signing_key: ${AUDIT_SIGNING_KEY}
+  s3_bucket: ${AUDIT_S3_BUCKET}
+  encryption_enabled: true
+  
+  # Compliance Reporting
+  reports:
+    sec_compliance:
+      schedule: "daily"
+      retention_days: 2555
+    finra_compliance:
+      schedule: "weekly"
+      retention_days: 2555
+    aml_compliance:
+      schedule: "monthly"
+      retention_days: 2555
+
+# Encryption Configuration
+encryption:
+  aws_region: ${AWS_REGION:-us-east-1}
+  kms_key_id: ${AWS_KMS_KEY_ID}
+  enable_field_encryption: true
+  enable_database_encryption: true
+  key_rotation_days: 90
+  local_encryption_enabled: true
+  
+  # Sensitive Fields Configuration
+  sensitive_fields:
+    customer:
+      - ssn
+      - date_of_birth
+      - address
+      - phone
+      - account_number
+      - routing_number
+    trading:
+      - api_key
+      - oauth_token
+      - account_credentials
+
+# Authentication Configuration
+authentication:
+  jwt:
+    secret_key: ${JWT_SECRET_KEY}
+    algorithm: "HS256"
+    access_token_expire_minutes: 30
+    refresh_token_expire_days: 30
+    mfa_token_expire_minutes: 5
+  
+  # Password Policy
+  password_policy:
+    min_length: 12
+    require_uppercase: true
+    require_lowercase: true
+    require_digits: true
+    require_special_chars: true
+    max_age_days: 90
+    history_count: 12
+  
+  # Account Security
+  security:
+    max_login_attempts: 5
+    lockout_duration_minutes: 15
+    session_timeout_minutes: 60
+    require_mfa: true
+    
+  # MFA Configuration
+  mfa:
+    totp:
+      issuer_name: "AI Trading Platform"
+      window_size: 1
+    sms:
+      provider: "twilio"
+      timeout_minutes: 5
+    email:
+      timeout_minutes: 10
+
+# Compliance Configuration
+compliance:
+  monitoring:
+    enable_kyc_monitoring: true
+    enable_aml_monitoring: true
+    enable_audit_monitoring: true
+    enable_security_monitoring: true
+    
+  # Alert Thresholds
+  alerts:
+    high_threshold: 5
+    critical_threshold: 10
+    notification_channels:
+      - email
+      - slack
+      - pagerduty
+    
+  # Risk Management
+  risk:
+    position_limits:
+      individual_max: 1000000  # $1M
+      concentration_max: 0.1   # 10% of portfolio
+    
+    suspicious_activity:
+      large_trade_threshold: 100000  # $100K
+      rapid_trading_count: 10        # trades per minute
+      unusual_hours_trading: true
+    
+  # Regulatory Requirements
+  regulatory:
+    sec:
+      enable_reporting: true
+      report_schedule: "daily"
+    finra:
+      enable_reporting: true
+      report_schedule: "weekly"
+    cftc:
+      enable_reporting: true
+      report_schedule: "monthly"
+
+# Security Monitoring
+monitoring:
+  security_events:
+    retention_days: 365
+    alert_on_severity:
+      - high
+      - critical
+    
+  # Threat Detection
+  threat_detection:
+    enable_ip_geolocation: true
+    enable_device_fingerprinting: true
+    enable_behavioral_analysis: true
+    
+    # Suspicious Activity Patterns
+    patterns:
+      multiple_failed_logins: 5
+      login_from_new_location: true
+      unusual_trading_hours: true
+      large_position_changes: true
+  
+  # Incident Response
+  incident_response:
+    auto_block_threshold: "critical"
+    notification_delay_seconds: 60
+    escalation_timeout_minutes: 15
+
+# Data Protection
+data_protection:
+  # Data Classification
+  classification:
+    public: []
+    internal:
+      - trading_strategies
+      - market_data
+    confidential:
+      - customer_data
+      - financial_records
+    restricted:
+      - kyc_documents
+      - audit_logs
+      - encryption_keys
+  
+  # Data Retention
+  retention:
+    customer_data: 2555  # 7 years
+    trading_data: 2555   # 7 years
+    audit_logs: 2555     # 7 years
+    kyc_documents: 2555  # 7 years
+    session_data: 30     # 30 days
+  
+  # Data Anonymization
+  anonymization:
+    enable_for_analytics: true
+    retention_after_anonymization: 3650  # 10 years
+    fields_to_anonymize:
+      - email
+      - phone
+      - address
+      - name
+
+# Integration Settings
+integrations:
+  # External Security Services
+  external_services:
+    jumio:
+      timeout_seconds: 30
+      retry_attempts: 3
+    onfido:
+      timeout_seconds: 30
+      retry_attempts: 3
+    aws_kms:
+      timeout_seconds: 10
+      retry_attempts: 3
+  
+  # Notification Services
+  notifications:
+    email:
+      provider: "ses"
+      from_address: "security@tradingplatform.com"
+    slack:
+      webhook_url: ${SLACK_WEBHOOK_URL}
+      channel: "#security-alerts"
+    pagerduty:
+      integration_key: ${PAGERDUTY_INTEGRATION_KEY}
+
+# Development/Testing Overrides
+development:
+  # Disable certain security features for development
+  disable_mfa: false
+  allow_weak_passwords: false
+  skip_kyc_verification: false
+  use_mock_services: false
+  
+  # Test Data
+  test_users:
+    - email: "test@example.com"
+      password: "TestPassword123!"
+      kyc_status: "verified"
+      mfa_enabled: true
