@@ -4,12 +4,12 @@ Extracted to improve maintainability and reduce code duplication.
 """
 
 from typing import Dict, Any, List
-from unittest.mock import Mock, AsyncMock
 import pandas as pd
 from datetime import datetime, timezone, timedelta
 
 from src.models.market_data import MarketData, ExchangeType
 from src.models.trading_signal import TradingSignal, TradingAction
+from src.models.portfolio import Portfolio
 
 
 class TradingWorkflowTestHelper:
@@ -88,14 +88,40 @@ class WorkflowStepExecutor:
     
     async def execute_signal_generation_step(self, symbol: str, data: pd.DataFrame) -> TradingSignal:
         """Execute signal generation step."""
-        return await self.decision_engine.generate_signal(symbol, data)
+        return self.decision_engine.generate_signal(symbol, data)
     
     async def execute_risk_validation_step(self, signal: TradingSignal) -> bool:
         """Execute risk validation step."""
+        # Create a mock portfolio for testing
+        mock_portfolio = Portfolio(
+            user_id="test_user",
+            positions={},
+            cash_balance=100000.0,
+            total_value=100000.0,
+            last_updated=datetime.now(timezone.utc)
+        )
+        
         return await self.risk_service.validate_trade(
-            signal, self.portfolio_service.get_portfolio()
+            signal, mock_portfolio
         )
     
     async def execute_position_sizing_step(self, signal: TradingSignal) -> int:
         """Execute position sizing step."""
-        return await self.portfolio_service.calculate_optimal_position_size(signal)
+        # Create a mock portfolio for testing
+        mock_portfolio = Portfolio(
+            user_id="test_user",
+            positions={},
+            cash_balance=100000.0,
+            total_value=100000.0,
+            last_updated=datetime.now(timezone.utc)
+        )
+
+        # Call the correct method with appropriate parameters (no await needed)
+        return self.portfolio_service.calculate_position_sizing(
+            portfolio=mock_portfolio,
+            symbol=signal.symbol,
+            expected_return=0.05,  # Mock expected return
+            volatility=0.2,  # Mock volatility
+            correlation_with_portfolio=0.0,
+            risk_budget=0.02
+        )

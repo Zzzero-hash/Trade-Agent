@@ -95,9 +95,9 @@ class MockExchangeFactory:
     def create_mock_exchanges() -> Dict[str, Any]:
         """Create mock exchange connectors with common setup."""
         from unittest.mock import Mock, AsyncMock
-        from src.exchanges.robinhood_connector import RobinhoodConnector
-        from src.exchanges.oanda_connector import OANDAConnector
-        from src.exchanges.coinbase_connector import CoinbaseConnector
+        from src.exchanges.robinhood import RobinhoodConnector
+        from src.exchanges.oanda import OANDAConnector
+        from src.exchanges.coinbase import CoinbaseConnector
         
         robinhood = Mock(spec=RobinhoodConnector)
         oanda = Mock(spec=OANDAConnector)

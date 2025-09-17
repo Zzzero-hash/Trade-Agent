@@ -76,7 +76,7 @@ class TradingWorkflowStrategy(ABC):
             results['risk_approved'] = risk_approved
         
         # Step 4: Position sizing
-        with patch.object(executor.portfolio_service, 'calculate_optimal_position_size') as mock_position:
+        with patch.object(executor.portfolio_service, 'calculate_position_sizing') as mock_position:
             mock_position.return_value = 100
             optimal_size = await executor.execute_position_sizing_step(signal)
             results['position_sized'] = optimal_size == 100

@@ -31,9 +31,9 @@ from src.services.data_aggregator import DataAggregator
 from src.services.trading_decision_engine import TradingDecisionEngine
 from src.services.portfolio_management_service import PortfolioManagementService
 from src.services.risk_management_service import RiskManagementService
-from src.exchanges.robinhood_connector import RobinhoodConnector
-from src.exchanges.oanda_connector import OANDAConnector
-from src.exchanges.coinbase_connector import CoinbaseConnector
+from src.exchanges.robinhood import RobinhoodConnector
+from src.exchanges.oanda import OANDAConnector
+from src.exchanges.coinbase import CoinbaseConnector
 
 
 class TestEndToEndTradingWorkflows:

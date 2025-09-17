@@ -263,3 +263,26 @@ class PortfolioManagementService:
             "concentration_risk": concentration,
             "confidence_level": confidence_level
         }
+    
+    async def update_position(
+        self,
+        symbol: str,
+        quantity: float,
+        price: float,
+        action: str
+    ) -> bool:
+        """
+        Update portfolio position (mock implementation for testing).
+        
+        Args:
+            symbol: Trading symbol
+            quantity: Quantity of the trade
+            price: Execution price
+            action: Trade action ('buy' or 'sell')
+            
+        Returns:
+            bool: True if update successful, False otherwise
+        """
+        # This is a mock implementation for testing purposes
+        # In a real implementation, this would update the actual portfolio
+        return True

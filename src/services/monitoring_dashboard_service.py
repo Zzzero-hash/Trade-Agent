@@ -14,11 +14,9 @@ import numpy as np
 from dataclasses import dataclass, asdict
 
 from src.services.model_monitoring_service import (
-    ModelMonitoringService, 
-    ModelPerformanceMetrics,
-    Alert,
-    AlertSeverity
+    ModelMonitoringService,
 )
+from src.models.monitoring import Alert, AlertSeverity, ModelPerformanceMetrics
 from src.utils.monitoring import get_metrics_collector
 from src.utils.logging import get_logger
 

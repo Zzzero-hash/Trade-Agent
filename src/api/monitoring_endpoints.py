@@ -9,11 +9,8 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 import json
 
-from src.services.model_monitoring_service import (
-    ModelMonitoringService,
-    AlertSeverity,
-    DriftType
-)
+from src.services.model_monitoring_service import ModelMonitoringService
+from src.models.monitoring import Alert, AlertSeverity, DriftType
 from src.services.monitoring_dashboard_service import MonitoringDashboardService
 from src.services.automated_retraining_service import (
     AutomatedRetrainingService,
@@ -243,7 +240,6 @@ async def create_alert(
             )
         
         # Create alert
-        from src.services.model_monitoring_service import Alert
         alert = Alert(
             id=f"manual_{datetime.now().timestamp()}",
             severity=severity,

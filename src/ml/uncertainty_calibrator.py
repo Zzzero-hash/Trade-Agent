@@ -307,7 +307,8 @@ class UncertaintyCalibrator:
         X_test: np.ndarray,
         y_class_test: np.ndarray,
         y_reg_test: np.ndarray,
-        n_bins: int = 10
+        n_bins: int = 10,
+        confidence_levels: List[float] = [0.68, 0.95, 0.99]
     ) -> Dict[str, float]:
         """
         Validate calibration quality using various metrics.
@@ -317,6 +318,7 @@ class UncertaintyCalibrator:
             y_class_test: Classification test targets of shape (samples,)
             y_reg_test: Regression test targets of shape (samples, targets)
             n_bins: Number of bins for calibration curve
+            confidence_levels: Confidence levels to evaluate for regression
             
         Returns:
             Dictionary with calibration quality metrics
@@ -375,12 +377,21 @@ class UncertaintyCalibrator:
                 )
                 metrics['ece_calibrated'] = ece_cal
                 
-                # Improvement
+                # Maximum calibration error (MCE)
+                mce_uncal = np.max(np.abs(fraction_of_positives_uncal - mean_predicted_value_uncal))
+                mce_cal = np.max(np.abs(fraction_of_positives_cal - mean_predicted_value_cal))
+                metrics['mce_uncalibrated'] = mce_uncal
+                metrics['mce_calibrated'] = mce_cal
+                
+                # Improvement metrics
                 metrics['brier_score_improvement'] = (
                     metrics['brier_score_uncalibrated'] - metrics['brier_score_calibrated']
                 )
                 metrics['ece_improvement'] = (
                     metrics['ece_uncalibrated'] - metrics['ece_calibrated']
+                )
+                metrics['mce_improvement'] = (
+                    metrics['mce_uncalibrated'] - metrics['mce_calibrated']
                 )
             else:
                 # Multiclass - simplified metrics
@@ -406,36 +417,70 @@ class UncertaintyCalibrator:
         # Regression calibration metrics
         if 'regression_pred' in predictions and 'regression_uncertainty' in predictions:
             y_pred_reg = predictions['regression_pred']
-            y_pred_reg_calibrated = calibrated_predictions['regression_pred']
+            y_pred_reg_calibrated = calibrated_predictions.get('regression_pred', y_pred_reg)
             y_pred_reg_uncertainty = predictions['regression_uncertainty']
             y_pred_reg_uncertainty_calibrated = calibrated_predictions['regression_uncertainty']
             
-            # Prediction interval coverage (should be close to nominal coverage)
+            # Ensure proper shapes
             if y_pred_reg.ndim == 1:
                 y_pred_reg = y_pred_reg.reshape(-1, 1)
                 y_reg_test = y_reg_test.reshape(-1, 1)
                 y_pred_reg_uncertainty = y_pred_reg_uncertainty.reshape(-1, 1)
                 y_pred_reg_uncertainty_calibrated = y_pred_reg_uncertainty_calibrated.reshape(-1, 1)
             
-            # Coverage at 95% confidence (assuming 2*uncertainty covers 95% of cases)
-            coverage_uncal = np.mean(
-                np.abs(y_pred_reg - y_reg_test) <= 2 * y_pred_reg_uncertainty
-            )
-            coverage_cal = np.mean(
-                np.abs(y_pred_reg_calibrated - y_reg_test) <= 2 * y_pred_reg_uncertainty_calibrated
-            )
-            
-            metrics['coverage_95_uncalibrated'] = coverage_uncal
-            metrics['coverage_95_calibrated'] = coverage_cal
-            metrics['coverage_improvement'] = coverage_cal - coverage_uncal
+            # Coverage at different confidence levels
+            for conf_level in confidence_levels:
+                # Z-score for confidence level (assuming normal distribution)
+                z_score = {0.68: 1.0, 0.95: 1.96, 0.99: 2.58}.get(conf_level, 1.96)
+                
+                # Coverage calculation
+                coverage_uncal = np.mean(
+                    np.abs(y_pred_reg - y_reg_test) <= z_score * y_pred_reg_uncertainty
+                )
+                coverage_cal = np.mean(
+                    np.abs(y_pred_reg_calibrated - y_reg_test) <= z_score * y_pred_reg_uncertainty_calibrated
+                )
+                
+                metrics[f'coverage_{int(conf_level*100)}_uncalibrated'] = coverage_uncal
+                metrics[f'coverage_{int(conf_level*100)}_calibrated'] = coverage_cal
+                metrics[f'coverage_{int(conf_level*100)}_improvement'] = coverage_cal - coverage_uncal
+                
+                # Coverage error (how far from nominal coverage)
+                metrics[f'coverage_error_{int(conf_level*100)}_uncalibrated'] = abs(coverage_uncal - conf_level)
+                metrics[f'coverage_error_{int(conf_level*100)}_calibrated'] = abs(coverage_cal - conf_level)
             
             # Sharpness (mean prediction interval width, lower is better)
-            sharpness_uncal = np.mean(4 * y_pred_reg_uncertainty)  # 4 * std for 95% interval
-            sharpness_cal = np.mean(4 * y_pred_reg_uncertainty_calibrated)
+            sharpness_uncal = np.mean(2 * 1.96 * y_pred_reg_uncertainty)  # 95% interval width
+            sharpness_cal = np.mean(2 * 1.96 * y_pred_reg_uncertainty_calibrated)
             
             metrics['sharpness_uncalibrated'] = sharpness_uncal
             metrics['sharpness_calibrated'] = sharpness_cal
-            metrics['sharpness_improvement'] = sharpness_cal - sharpness_uncal
+            metrics['sharpness_improvement'] = sharpness_uncal - sharpness_cal  # Lower is better, so improvement is negative
+            
+            # Interval score (combines coverage and sharpness)
+            for conf_level in confidence_levels:
+                alpha = 1 - conf_level
+                z_score = {0.68: 1.0, 0.95: 1.96, 0.99: 2.58}.get(conf_level, 1.96)
+                
+                # Interval bounds
+                lower_uncal = y_pred_reg - z_score * y_pred_reg_uncertainty
+                upper_uncal = y_pred_reg + z_score * y_pred_reg_uncertainty
+                lower_cal = y_pred_reg_calibrated - z_score * y_pred_reg_uncertainty_calibrated
+                upper_cal = y_pred_reg_calibrated + z_score * y_pred_reg_uncertainty_calibrated
+                
+                # Interval score calculation
+                def interval_score(y_true, lower, upper, alpha):
+                    width = upper - lower
+                    lower_penalty = 2 * alpha * np.maximum(0, lower - y_true)
+                    upper_penalty = 2 * alpha * np.maximum(0, y_true - upper)
+                    return width + lower_penalty + upper_penalty
+                
+                is_uncal = np.mean(interval_score(y_reg_test, lower_uncal, upper_uncal, alpha))
+                is_cal = np.mean(interval_score(y_reg_test, lower_cal, upper_cal, alpha))
+                
+                metrics[f'interval_score_{int(conf_level*100)}_uncalibrated'] = is_uncal
+                metrics[f'interval_score_{int(conf_level*100)}_calibrated'] = is_cal
+                metrics[f'interval_score_{int(conf_level*100)}_improvement'] = is_uncal - is_cal  # Lower is better
         
         return metrics
     

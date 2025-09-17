@@ -13,11 +13,10 @@ from typing import Dict, Any
 
 from src.services.model_monitoring_service import (
     ModelMonitoringService,
-    ModelPerformanceMetrics,
-    AlertSeverity,
     EmailAlertChannel,
-    SlackAlertChannel
+    SlackAlertChannel,
 )
+from src.models.monitoring import Alert, AlertSeverity, ModelPerformanceMetrics
 from src.services.monitoring_dashboard_service import MonitoringDashboardService
 from src.services.automated_retraining_service import (
     AutomatedRetrainingService,
@@ -314,8 +313,6 @@ async def demonstrate_alert_scenarios():
     
     # Scenario 2: Manual alert creation
     print("Scenario 2: Manual System Alert")
-    from src.services.model_monitoring_service import Alert
-    
     manual_alert = Alert(
         id="manual_system_alert",
         severity=AlertSeverity.CRITICAL,

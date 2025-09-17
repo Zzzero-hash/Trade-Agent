@@ -1,30 +1,30 @@
 """
-Demo script for the advanced monitoring and alerting system.
+Advanced Monitoring and Alerting System Demo
 
-This script demonstrates how to use the advanced monitoring system with:
-- Real-time anomaly detection
-- Model drift detection with statistical significance testing
-- Performance degradation monitoring with automated retraining triggers
-- System health monitoring with predictive maintenance
-- Alert routing and escalation procedures
+This example demonstrates the comprehensive advanced monitoring system
+with real-time anomaly detection, statistical drift detection, performance
+degradation alerts, predictive maintenance, and automated retraining triggers.
 """
-
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import asyncio
 import numpy as np
+import logging
 from datetime import datetime, timedelta
-from typing import List
+from typing import Dict, Any, Optional
 
 from src.services.monitoring.advanced_monitoring_system import (
     AdvancedMonitoringSystem,
-    AnomalyDetectionConfig,
-    ModelDriftConfig,
-    PerformanceDegradationConfig,
-    SystemHealthConfig,
-    AlertRoutingConfig
+    MonitoringMode,
+    HealthStatus
+)
+from src.services.monitoring.config import (
+    ConfigManager,
+    MonitoringConfig,
+    PerformanceThresholds,
+    DriftThresholds,
+    AlertingSettings
+)
+f   AlertRoutingConfig
 )
 from src.models.monitoring import ModelPerformanceMetrics, Alert
 from src.utils.logging import get_logger

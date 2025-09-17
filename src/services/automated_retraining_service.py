@@ -14,12 +14,8 @@ import json
 import os
 from pathlib import Path
 
-from src.services.model_monitoring_service import (
-    ModelMonitoringService,
-    DriftDetectionResult,
-    DriftType,
-    AlertSeverity
-)
+from src.services.model_monitoring_service import ModelMonitoringService
+from src.models.monitoring import DriftDetectionResult, DriftType, AlertSeverity
 if TYPE_CHECKING:
     from src.services.monitoring.advanced_monitoring_system import AdvancedMonitoringSystem
 

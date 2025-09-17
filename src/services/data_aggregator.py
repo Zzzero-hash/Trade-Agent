@@ -319,8 +319,8 @@ class DataQualityValidator:
 class DataAggregator:
     """Main data aggregation class that normalizes data from all exchanges."""
     
-    def __init__(self, exchanges: List[ExchangeConnector]):
-        self.exchanges = exchanges
+    def __init__(self, exchanges: List[ExchangeConnector] = None):
+        self.exchanges = exchanges or []
         self.logger = logging.getLogger(__name__)
         self.synchronizer = TimestampSynchronizer()
         self.validator = DataQualityValidator()
@@ -572,6 +572,62 @@ class DataAggregator:
             
         except Exception as e:
             self.logger.error(f"Error aggregating historical data: {str(e)}")
+            return pd.DataFrame()
+    
+    async def get_historical_data(
+        self,
+        symbol: str,
+        exchange: str,
+        start_date: datetime,
+        end_date: datetime
+    ) -> pd.DataFrame:
+        """
+        Get historical data for a specific symbol and exchange.
+        
+        This method provides a simplified interface for getting historical data
+        from a specific exchange, adapting the more general aggregation method.
+        
+        Args:
+            symbol: Trading symbol
+            exchange: Exchange name
+            start_date: Start date for historical data
+            end_date: End date for historical data
+            
+        Returns:
+            DataFrame with historical data
+        """
+        try:
+            # Find the specific exchange
+            target_exchange = None
+            for exch in self.exchanges:
+                if exch.__class__.__name__.lower() == exchange.lower():
+                    target_exchange = exch
+                    break
+            
+            # If we can't find the specific exchange, try to get data from any connected exchange
+            if target_exchange is None or not target_exchange.is_connected:
+                for exch in self.exchanges:
+                    if exch.is_connected:
+                        target_exchange = exch
+                        break
+            
+            # If no connected exchanges, return empty DataFrame
+            if target_exchange is None:
+                return pd.DataFrame()
+            
+            # Get historical data from the exchange
+            # Using a default timeframe of '1d' (daily) for simplicity
+            df = await target_exchange.get_historical_data(
+                symbol=symbol,
+                timeframe='1d',
+                start=start_date,
+                end=end_date
+            )
+            
+            return df
+            
+        except Exception as e:
+            self.logger.error(f"Error getting historical data for {symbol} from {exchange}: {str(e)}")
             return pd.DataFrame()
     
     def get_data_quality_summary(self, hours: int = 24) -> Dict[str, Any]:

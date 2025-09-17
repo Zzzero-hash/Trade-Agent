@@ -244,8 +244,12 @@ class DecisionAuditor:
         Returns:
             Model version identifier
         """
-        model_version = getattr(model, 'version', 'unknown')
+        model_version = getattr(model, 'version', f'v{datetime.now().strftime("%Y%m%d_%H%M%S")}')
         model_hash = self._hash_model(model)
+        
+        # Set version on model if not already set
+        if not hasattr(model, 'version'):
+            model.version = model_version
         
         # Create model version info
         model_info = ModelVersionInfo(
@@ -264,6 +268,86 @@ class DecisionAuditor:
         self._save_audit_log()
         
         return model_version
+    
+    def track_model_performance(
+        self,
+        model_version: str,
+        performance_metrics: Dict[str, float],
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """
+        Track performance metrics for a model version over time.
+        
+        Args:
+            model_version: Model version identifier
+            performance_metrics: Performance metrics to track
+            timestamp: Optional timestamp (defaults to now)
+        """
+        if timestamp is None:
+            timestamp = datetime.now()
+        
+        # Create a performance tracking entry
+        performance_entry = {
+            'model_version': model_version,
+            'performance_metrics': performance_metrics,
+            'timestamp': timestamp.isoformat(),
+            'entry_type': 'performance_tracking'
+        }
+        
+        # Add to audit entries for tracking
+        audit_entry = AuditEntry(
+            timestamp=timestamp,
+            model_version=model_version,
+            model_hash=self.model_versions.get(model_version, ModelVersionInfo('', '', timestamp)).hash,
+            input_hash='performance_tracking',
+            prediction=performance_entry,
+            metadata={'entry_type': 'performance_tracking'}
+        )
+        
+        self.audit_entries.append(audit_entry)
+        self._save_audit_log()
+    
+    def get_model_performance_history(
+        self,
+        model_version: str,
+        metric_name: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get performance history for a specific model version.
+        
+        Args:
+            model_version: Model version identifier
+            metric_name: Optional specific metric to filter by
+            
+        Returns:
+            List of performance entries
+        """
+        performance_entries = []
+        
+        for entry in self.audit_entries:
+            if (entry.model_version == model_version and 
+                entry.metadata and 
+                entry.metadata.get('entry_type') == 'performance_tracking'):
+                
+                if metric_name:
+                    # Filter by specific metric
+                    if (isinstance(entry.prediction, dict) and 
+                        'performance_metrics' in entry.prediction and
+                        metric_name in entry.prediction['performance_metrics']):
+                        performance_entries.append({
+                            'timestamp': entry.timestamp,
+                            'metric_value': entry.prediction['performance_metrics'][metric_name],
+                            'all_metrics': entry.prediction['performance_metrics']
+                        })
+                else:
+                    # Return all metrics
+                    if isinstance(entry.prediction, dict) and 'performance_metrics' in entry.prediction:
+                        performance_entries.append({
+                            'timestamp': entry.timestamp,
+                            'metrics': entry.prediction['performance_metrics']
+                        })
+        
+        return performance_entries
     
     def get_decision_history(
         self,

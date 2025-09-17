@@ -13,6 +13,13 @@ from .backtesting import (
     BacktestConfig, BacktestResult, BacktestPeriodResult, PerformanceMetrics,
     TradeRecord, StressTestScenario, StressTestResult, BacktestPeriodType
 )
+from .monitoring import (
+    Alert,
+    AlertSeverity,
+    DriftDetectionResult,
+    DriftType,
+    ModelPerformanceMetrics,
+)
 
 __all__ = [
     "MarketData",
@@ -38,5 +45,10 @@ __all__ = [
     "TradeRecord",
     "StressTestScenario",
     "StressTestResult",
-    "BacktestPeriodType"
+    "BacktestPeriodType",
+    "Alert",
+    "AlertSeverity",
+    "DriftDetectionResult",
+    "DriftType",
+    "ModelPerformanceMetrics",
 ]

@@ -15,19 +15,24 @@ Refactored version using improved architecture with:
 import asyncio
 import numpy as np
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Callable
-from enum import Enum
-from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional
 
 from src.utils.logging import get_logger
 from src.utils.monitoring import get_metrics_collector, MetricsCollector
 from src.config.settings import get_settings
 from src.models.trading_signal import TradingSignal
 from src.models.market_data import MarketData
+from src.models.monitoring import (
+    Alert,
+    AlertSeverity,
+    DriftDetectionResult,
+    DriftType,
+    ModelPerformanceMetrics,
+)
 
 # Import refactored components
 from .monitoring.performance_tracker import PerformanceTracker
-from .monitoring.drift_strategies import DriftDetectionContext, DriftType
+from .monitoring.drift_strategies import DriftDetectionContext
 from .monitoring.alert_system import AlertSubject, AlertFactory
 from .monitoring.resource_manager import MonitoringResourceManager
 from .monitoring.config import MonitoringConfig, ConfigManager
@@ -40,67 +45,6 @@ from src.ml.feature_extraction.monitoring import FeatureExtractionPerformanceMon
 from src.ml.feature_extraction.alerting import FeatureExtractionAlertingSystem
 
 logger = get_logger("model_monitoring")
-
-
-class AlertSeverity(Enum):
-    """Alert severity levels"""
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class DriftType(Enum):
-    """Types of model drift"""
-    DATA_DRIFT = "data_drift"
-    CONCEPT_DRIFT = "concept_drift"
-    PERFORMANCE_DRIFT = "performance_drift"
-
-
-@dataclass
-class ModelPerformanceMetrics:
-    """Model performance metrics container"""
-    timestamp: datetime
-    model_name: str
-    model_version: str
-    accuracy: float
-    precision: float
-    recall: float
-    f1_score: float
-    sharpe_ratio: Optional[float] = None
-    max_drawdown: Optional[float] = None
-    total_return: Optional[float] = None
-    win_rate: Optional[float] = None
-    avg_trade_duration: Optional[float] = None
-    prediction_confidence: Optional[float] = None
-
-
-@dataclass
-class DriftDetectionResult:
-    """Drift detection result"""
-    drift_type: DriftType
-    severity: AlertSeverity
-    drift_score: float
-    threshold: float
-    detected: bool
-    timestamp: datetime
-    details: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class Alert:
-    """Alert message container"""
-    id: str
-    severity: AlertSeverity
-    title: str
-    message: str
-    timestamp: datetime
-    model_name: Optional[str] = None
-    metric_name: Optional[str] = None
-    current_value: Optional[float] = None
-    threshold: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
 
 class ModelMonitoringService:
     """
