@@ -4,6 +4,7 @@ Data models for the AI trading platform.
 from .market_data import MarketData, ExchangeType
 from .trading_signal import TradingSignal, TradingAction
 from .portfolio import Portfolio, Position
+from .user import User, UserRole
 from .usage_tracking import (
     UsageRecord, UsageSummary, UserSubscription, UsageLimits,
     BillingRecord, ConversionMetrics, SubscriptionPlan,
@@ -28,6 +29,8 @@ __all__ = [
     "TradingAction",
     "Portfolio",
     "Position",
+    "User",
+    "UserRole",
     "UsageRecord",
     "UsageSummary",
     "UserSubscription",

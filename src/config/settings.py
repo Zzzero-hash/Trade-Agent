@@ -79,6 +79,7 @@ class ExchangeConfig:
     api_key: str = ""
     api_secret: str = ""
     sandbox: bool = True
+    base_url: Optional[str] = None
     rate_limit: int = 100  # requests per minute
     timeout: int = 30  # seconds
 
@@ -328,6 +329,7 @@ class Settings:
             'exchanges': {
                 name: {
                     'sandbox': config.sandbox,
+                    'base_url': config.base_url,
                     'rate_limit': config.rate_limit,
                     'timeout': config.timeout
                 }

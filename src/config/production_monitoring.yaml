@@ -1,0 +1,129 @@
+# Production Monitoring Configuration
+monitoring:
+  # Prometheus metrics configuration
+  prometheus:
+    enabled: true
+    port: 8000
+    metrics_path: "/metrics"
+    scrape_interval: "15s"
+    
+  # Grafana dashboard configuration
+  grafana:
+    enabled: true
+    url: "http://grafana:3000"
+    api_key: "${GRAFANA_API_KEY}"
+    datasource: "prometheus"
+    
+  # Alert thresholds
+  thresholds:
+    # Latency thresholds (milliseconds)
+    request_latency_warning: 1000
+    request_latency_critical: 2000
+    trade_execution_latency_warning: 500
+    trade_execution_latency_critical: 1000
+    feature_extraction_latency_warning: 100
+    feature_extraction_latency_critical: 200
+    
+    # Error rate thresholds (percentage)
+    error_rate_warning: 5.0
+    error_rate_critical: 10.0
+    
+    # System resource thresholds (percentage)
+    cpu_usage_warning: 80.0
+    cpu_usage_critical: 90.0
+    memory_usage_warning: 85.0
+    memory_usage_critical: 95.0
+    disk_usage_warning: 90.0
+    disk_usage_critical: 95.0
+    
+    # Business metrics thresholds
+    portfolio_drawdown_warning: 10.0
+    portfolio_drawdown_critical: 15.0
+    daily_loss_warning: 5000.0
+    daily_loss_critical: 10000.0
+
+# Risk Management Configuration
+risk_management:
+  # Real-time monitoring intervals (seconds)
+  risk_check_interval: 5
+  position_sync_interval: 30
+  portfolio_monitoring_interval: 60
+  
+  # Default risk limits
+  default_limits:
+    max_position_size: 50000.0
+    max_daily_loss: 5000.0
+    max_portfolio_risk: 0.15
+    stop_loss_percentage: 0.10
+    max_leverage: 2.0
+    
+  # Circuit breaker configuration
+  circuit_breaker:
+    failure_threshold: 5
+    recovery_timeout: 300  # 5 minutes
+    success_threshold: 3
+    
+  # Automated actions
+  automated_actions:
+    stop_loss_enabled: true
+    circuit_breaker_enabled: true
+    position_size_enforcement: true
+
+# Alerting Configuration
+alerting:
+  # PagerDuty integration
+  pagerduty:
+    enabled: true
+    integration_key: "${PAGERDUTY_INTEGRATION_KEY}"
+    api_url: "https://events.pagerduty.com/v2/enqueue"
+    
+  # Slack integration
+  slack:
+    enabled: true
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channel: "#trading-alerts"
+    username: "Trading Platform"
+    
+  # Email configuration
+  email:
+    enabled: true
+    smtp_host: "${SMTP_HOST}"
+    smtp_port: 587
+    username: "${SMTP_USERNAME}"
+    password: "${SMTP_PASSWORD}"
+    from_address: "alerts@tradingplatform.com"
+    
+  # Rate limiting
+  rate_limiting:
+    max_alerts_per_window: 10
+    window_minutes: 5
+    
+  # Escalation rules
+  escalation:
+    critical_delay_minutes: 5
+    error_delay_minutes: 10
+    warning_delay_minutes: 15
+    max_escalations: 3
+
+# Performance Monitoring
+performance:
+  # Tracking configuration
+  tracking:
+    window_size: 1000
+    cleanup_interval_hours: 24
+    
+  # Health check intervals (seconds)
+  health_checks:
+    performance_check_interval: 30
+    resource_check_interval: 60
+    metrics_collection_interval: 60
+    
+  # Alert cooldown (seconds)
+  alert_cooldown: 300
+
+# Data Retention
+data_retention:
+  metrics_history_days: 30
+  alert_history_days: 90
+  performance_data_days: 7
+  risk_data_days: 30

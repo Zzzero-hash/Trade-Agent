@@ -14,11 +14,11 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, EmailStr
 from passlib.context import CryptContext
 from jose import jwt
-from enum import Enum
 
 from src.config.settings import get_settings
 from src.utils.logging import get_logger
 from src.utils.monitoring import get_metrics_collector
+from src.models.user import User, UserRole
 
 logger = get_logger(__name__)
 metrics = get_metrics_collector()
@@ -31,28 +31,6 @@ security = HTTPBearer()
 
 # Create router
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
-
-
-class UserRole(str, Enum):
-    """User roles for access control."""
-    ADMIN = "admin"
-    PREMIUM = "premium"
-    FREE = "free"
-    TRIAL = "trial"
-
-
-class User(BaseModel):
-    """User model for authentication."""
-    id: str
-    email: EmailStr
-    username: str
-    role: UserRole
-    is_active: bool = True
-    created_at: datetime
-    last_login: Optional[datetime] = None
-    trial_expires_at: Optional[datetime] = None
-    daily_signal_count: int = 0
-    daily_signal_limit: int = 5
 
 
 class UserCreate(BaseModel):

@@ -1,8 +1,8 @@
 # Data Processor Service Dockerfile
-FROM python:3.11-slim as base
+FROM python:3.11-slim AS base
 
 # Build stage
-FROM base as builder
+FROM base AS builder
 RUN apt-get update && apt-get install -y \
     build-essential \
     gcc \
@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Runtime stage
-FROM base as runtime
+FROM base AS runtime
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH"

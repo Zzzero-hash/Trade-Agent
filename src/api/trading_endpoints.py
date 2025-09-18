@@ -9,6 +9,7 @@ Requirements: 3.1, 3.2, 11.1, 11.2
 
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
+from functools import lru_cache
 from fastapi import APIRouter, HTTPException, Depends, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 import asyncio
@@ -85,13 +86,52 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+@lru_cache()
+def _decision_engine_singleton() -> TradingDecisionEngine:
+    """Provide a cached trading decision engine instance."""
+
+    return TradingDecisionEngine()
+
+
+def get_trading_decision_engine() -> TradingDecisionEngine:
+    """Dependency provider for the trading decision engine."""
+
+    return _decision_engine_singleton()
+
+
+@lru_cache()
+def _portfolio_service_singleton() -> PortfolioManagementService:
+    """Provide a cached portfolio management service."""
+
+    return PortfolioManagementService()
+
+
+def get_portfolio_management_service() -> PortfolioManagementService:
+    """Dependency provider for portfolio operations."""
+
+    return _portfolio_service_singleton()
+
+
+@lru_cache()
+def _data_aggregator_singleton() -> DataAggregator:
+    """Provide a cached data aggregator instance."""
+
+    return DataAggregator()
+
+
+def get_data_aggregator() -> DataAggregator:
+    """Dependency provider for market data aggregation."""
+
+    return _data_aggregator_singleton()
+
+
 # Trading Signal Endpoints
 
 @router.post("/signals/generate", response_model=TradingSignal)
 async def generate_trading_signal(
     symbol: str,
     user: User = Depends(get_current_user),
-    decision_engine: TradingDecisionEngine = Depends()
+    decision_engine: TradingDecisionEngine = Depends(get_trading_decision_engine)
 ) -> TradingSignal:
     """
     Generate a trading signal for a specific symbol.
@@ -209,7 +249,7 @@ async def get_signal_performance(
 @router.get("/portfolio", response_model=Portfolio)
 async def get_portfolio(
     user: User = Depends(get_current_user),
-    portfolio_service: PortfolioManagementService = Depends()
+    portfolio_service: PortfolioManagementService = Depends(get_portfolio_management_service)
 ) -> Portfolio:
     """
     Get current portfolio for the authenticated user.
@@ -233,7 +273,7 @@ async def get_portfolio(
 async def rebalance_portfolio(
     target_allocation: Dict[str, float],
     user: User = Depends(get_current_user),
-    portfolio_service: PortfolioManagementService = Depends()
+    portfolio_service: PortfolioManagementService = Depends(get_portfolio_management_service)
 ) -> JSONResponse:
     """
     Rebalance portfolio to target allocation.
@@ -296,7 +336,7 @@ async def rebalance_portfolio(
 async def get_portfolio_performance(
     days: int = Query(30, ge=1, le=365),
     user: User = Depends(get_current_user),
-    portfolio_service: PortfolioManagementService = Depends()
+    portfolio_service: PortfolioManagementService = Depends(get_portfolio_management_service)
 ) -> Dict[str, Any]:
     """
     Get portfolio performance metrics over specified period.
@@ -316,7 +356,7 @@ async def optimize_portfolio(
     optimization_method: str = Query("mean_variance", regex="^(mean_variance|risk_parity|black_litterman)$"),
     risk_tolerance: float = Query(0.5, ge=0.0, le=1.0),
     user: User = Depends(get_current_user),
-    portfolio_service: PortfolioManagementService = Depends()
+    portfolio_service: PortfolioManagementService = Depends(get_portfolio_management_service)
 ) -> Dict[str, Any]:
     """
     Optimize portfolio allocation using specified method.
@@ -344,7 +384,7 @@ async def get_market_data(
     timeframe: str = Query("1h", regex="^(1m|5m|15m|1h|4h|1d)$"),
     limit: int = Query(100, ge=1, le=1000),
     user: User = Depends(get_current_user),
-    data_aggregator: DataAggregator = Depends()
+    data_aggregator: DataAggregator = Depends(get_data_aggregator)
 ) -> Dict[str, Any]:
     """
     Get historical market data for a symbol.
