@@ -1,0 +1,27 @@
+# Weights & Biases Configuration
+wandb:
+  project: "ml-trading-ensemble"
+  entity: null  # Set to your W&B username/team
+  
+  # Run Configuration
+  run:
+    name: null  # Will be auto-generated if null
+    tags: ["financial-ml", "cnn-lstm", "rl", "ensemble"]
+    notes: "Advanced ML trading system with CNN+LSTM and RL ensemble"
+    
+  # Logging Configuration
+  logging:
+    log_freq: 100
+    log_gradients: true
+    log_parameters: true
+    watch_model: true
+    
+  # Sweep Configuration for Hyperparameter Optimization
+  sweep:
+    method: "bayes"
+    metric:
+      name: "val_sharpe_ratio"
+      goal: "maximize"
+    early_terminate:
+      type: "hyperband"
+      min_iter: 10
