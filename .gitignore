@@ -193,3 +193,8 @@ tmp/
 temp/
 *.tmp
 *.temp
+
+# Node Modules
+frontend/node_modules/
+frontend/.next/
+frontend/.next

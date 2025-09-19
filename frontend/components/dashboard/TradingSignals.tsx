@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useSignalSubscription } from '@/lib/websocket-context';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useMarketDataSubscription } from '@/lib/websocket-context';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
