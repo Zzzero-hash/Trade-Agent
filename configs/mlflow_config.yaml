@@ -1,0 +1,26 @@
+# MLflow Configuration for Experiment Tracking
+mlflow:
+  tracking_uri: "sqlite:///mlflow.db"
+  experiment_name: "ml-trading-ensemble"
+  artifact_location: "./mlruns"
+  
+  # Model Registry Configuration
+  model_registry:
+    registered_model_name: "trading-ensemble"
+    model_version_tags:
+      - "cnn-lstm"
+      - "rl-agent"
+      - "ensemble"
+  
+  # Logging Configuration
+  logging:
+    log_models: true
+    log_artifacts: true
+    log_params: true
+    log_metrics: true
+    
+  # Auto-logging
+  autolog:
+    pytorch: true
+    sklearn: false
+    disable: false

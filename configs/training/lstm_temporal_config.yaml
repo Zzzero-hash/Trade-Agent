@@ -1,0 +1,219 @@
+# LSTM Temporal Sequence Modeling Training Configuration
+# This configuration implements the requirements for task 5.3:
+# - Train bidirectional LSTM on sequential market data for 100+ epochs
+# - Implement gradient clipping and LSTM-specific regularization techniques
+# - Add attention mechanism training with learned attention weights
+# - Validate temporal modeling capability using sequence prediction tasks
+
+# Model Architecture Configuration
+model:
+  input_dim: 5  # OHLCV features
+  sequence_length: 100
+  lstm_hidden_dim: 256
+  num_lstm_layers: 3  # Deeper architecture for better temporal modeling
+  lstm_dropout: 0.3   # Higher dropout for regularization
+  
+  # Attention Configuration
+  attention_dim: 512
+  num_attention_heads: 8
+  attention_dropout: 0.2
+  time_horizons: [10, 30, 60, 100]  # Multi-scale temporal modeling
+  
+  # Regularization
+  use_layer_norm: true
+  gradient_clip_val: 1.0  # LSTM-specific gradient clipping
+  recurrent_dropout: 0.2  # Recurrent dropout for LSTM regularization
+  output_dim: 512
+
+# Training Configuration
+training:
+  num_epochs: 150  # 100+ epochs as required
+  batch_size: 64
+  learning_rate: 1e-4
+  weight_decay: 1e-4  # L2 regularization
+  
+  # Advanced Optimization
+  optimizer: "adamw"
+  scheduler: "cosine_with_warmup"
+  warmup_epochs: 10
+  min_lr: 1e-6
+  
+  # Early Stopping and Checkpointing
+  early_stopping_patience: 25
+  save_every_n_epochs: 10
+  checkpoint_dir: "models/checkpoints/lstm_temporal"
+  
+  # Mixed Precision Training
+  mixed_precision: true
+  
+  # Device Configuration
+  device: "auto"  # Auto-detect CUDA/CPU
+  num_workers: 4
+
+# Data Configuration
+data:
+  data_path: "data/processed"
+  timeframes: ["1min", "5min", "15min"]
+  target_columns: ["price_prediction", "volatility_estimation", "regime_detection"]
+  sequence_length: 100
+  validation_split: 0.2
+  test_split: 0.1
+  
+  # Data Augmentation
+  use_data_augmentation: true
+  noise_std: 0.01
+  temporal_jitter_prob: 0.1
+  price_scaling_range: [0.95, 1.05]
+
+# Validation Configuration
+validation:
+  # Sequence Prediction Validation
+  prediction_horizons: [1, 5, 10, 20, 50]  # Multi-horizon prediction evaluation
+  
+  # Validation Metrics
+  validation_metrics:
+    - "sequence_prediction_mse"
+    - "temporal_consistency"
+    - "attention_entropy"
+    - "long_term_dependency"
+    - "direction_accuracy"
+  
+  # Attention Analysis
+  log_attention_patterns: true
+  attention_analysis_samples: 100
+  
+  # Temporal Consistency Evaluation
+  temporal_consistency_lags: [10, 20, 50, 100]
+  
+  # Long-term Dependency Evaluation
+  dependency_lags: [10, 20, 50, 100]
+
+# Experiment Tracking
+experiment:
+  name: "lstm_temporal_modeling"
+  use_mlflow: true
+  use_wandb: false
+  
+  # Logging Configuration
+  log_every_n_steps: 50
+  log_attention_weights: true
+  log_gradient_norms: true
+  log_learning_rate: true
+  
+  # Model Checkpointing
+  save_best_only: false
+  monitor_metric: "val_loss"
+  
+# LSTM-Specific Regularization Techniques
+regularization:
+  # Gradient Clipping (critical for LSTM stability)
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"  # "norm" or "value"
+  
+  # Dropout Strategies
+  input_dropout: 0.1      # Dropout on input features
+  recurrent_dropout: 0.2  # Dropout on recurrent connections
+  output_dropout: 0.1     # Dropout on output layer
+  
+  # Weight Regularization
+  l1_regularization: 0.0
+  l2_regularization: 1e-4
+  
+  # LSTM-Specific Techniques
+  layer_normalization: true
+  batch_normalization: false  # Generally not used with LSTM
+  
+  # Attention Regularization
+  attention_entropy_weight: 0.01  # Encourage attention diversity
+  attention_sparsity_weight: 0.0  # Encourage attention sparsity (if needed)
+
+# Attention Mechanism Configuration
+attention:
+  # Multi-Head Attention
+  num_heads: 8
+  attention_dim: 512
+  dropout: 0.2
+  
+  # Attention Training
+  learn_attention_weights: true
+  attention_temperature: 1.0
+  
+  # Attention Analysis
+  save_attention_maps: true
+  visualize_attention: true
+  
+  # Hierarchical Attention
+  hierarchical_attention: true
+  time_horizons: [10, 30, 60, 100]
+
+# Performance Optimization
+performance:
+  # Mixed Precision Training
+  use_mixed_precision: true
+  loss_scale: "dynamic"
+  
+  # Memory Optimization
+  gradient_accumulation_steps: 1
+  max_grad_norm: 1.0
+  
+  # DataLoader Optimization
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+
+# Evaluation Metrics
+metrics:
+  # Primary Metrics
+  primary_metrics:
+    - "val_loss"
+    - "val_sequence_prediction_mse"
+    - "val_temporal_consistency"
+    - "val_attention_entropy"
+  
+  # Secondary Metrics
+  secondary_metrics:
+    - "val_direction_accuracy"
+    - "val_long_term_dependency"
+    - "val_attention_consistency"
+    - "val_representation_stability"
+  
+  # Sequence Prediction Metrics
+  sequence_prediction:
+    horizons: [1, 5, 10, 20, 50]
+    metrics: ["mse", "mae", "r2", "direction_accuracy"]
+  
+  # Attention Quality Metrics
+  attention_quality:
+    - "entropy"
+    - "consistency"
+    - "temporal_focus"
+    - "peak_distribution"
+  
+  # Temporal Modeling Metrics
+  temporal_modeling:
+    - "smoothness"
+    - "stability"
+    - "long_term_correlation"
+    - "dependency_preservation"
+
+# Output Configuration
+output:
+  # Model Outputs
+  save_model_checkpoints: true
+  save_best_model: true
+  save_final_model: true
+  
+  # Training Outputs
+  save_training_history: true
+  save_validation_results: true
+  save_attention_analysis: true
+  
+  # Visualization Outputs
+  generate_plots: true
+  save_attention_heatmaps: true
+  save_loss_curves: true
+  save_metric_plots: true
+  
+  # Report Generation
+  generate_validation_report: true
+  generate_training_summary: true

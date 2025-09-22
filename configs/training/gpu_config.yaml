@@ -1,0 +1,29 @@
+# GPU and Mixed Precision Training Configuration
+gpu:
+  # Device Configuration
+  device: "auto"  # auto, cpu, cuda, mps
+  device_ids: null  # List of GPU IDs, null for all available
+  
+  # Mixed Precision Training
+  mixed_precision:
+    enabled: true
+    dtype: "float16"  # float16, bfloat16
+    loss_scale: "dynamic"  # dynamic, static, or float value
+    
+  # Memory Management
+  memory:
+    empty_cache_freq: 100  # Empty cache every N steps
+    max_memory_fraction: 0.9  # Maximum GPU memory usage
+    
+  # Distributed Training
+  distributed:
+    enabled: false
+    backend: "nccl"  # nccl, gloo, mpi
+    world_size: 1
+    rank: 0
+    
+  # Optimization
+  optimization:
+    compile_model: true  # Use torch.compile for optimization
+    channels_last: false  # Use channels_last memory format
+    deterministic: false  # Use deterministic algorithms
