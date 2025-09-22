@@ -16,35 +16,41 @@ The system is architected as a research-grade model development laboratory that 
 
 ```mermaid
 graph TB
-    A[Market Data Sources] --> B[Data Preprocessing Pipeline]
-    B --> C[CNN+LSTM Feature Extractors]
-    B --> D[Market State Builder]
+    A[yfinance API] --> B[Data Ingestion Pipeline]
+    B --> C[Data Preprocessing & Feature Engineering]
+    C --> D[CNN+LSTM Feature Extractors]
+    C --> E[Market State Builder]
     
-    C --> E[Feature Vector Cache]
-    D --> F[Market Indicators]
+    D --> F[Feature Vector Cache]
+    E --> G[Market Indicators]
     
-    E --> G[RL Agent 1]
-    E --> H[RL Agent 2]
-    E --> I[RL Agent N]
-    F --> G
-    F --> H
-    F --> I
+    F --> H[RL Agent 1]
+    F --> I[RL Agent 2]
+    F --> J[RL Agent N]
+    G --> H
+    G --> I
+    G --> J
     
-    G --> J[Ensemble Decision Engine]
-    H --> J
-    I --> J
+    H --> K[Ensemble Decision Engine]
+    I --> K
+    J --> K
     
-    J --> K[Portfolio Manager]
-    K --> L[Trade Execution]
+    K --> L[Portfolio Manager]
+    L --> M[Trade Signal Output]
     
-    M[Training Environment] --> G
-    M --> H
-    M --> I
-    
-    N[Model Registry] --> C
-    N --> G
-    N --> H
+    N[Training Environment] --> H
     N --> I
+    N --> J
+    
+    O[Model Registry] --> D
+    O --> H
+    O --> I
+    O --> J
+    
+    P[Real-time Data Feed] --> Q[Inference Pipeline]
+    Q --> D
+    Q --> K
+    Q --> R[Live Predictions]
 ```
 
 ### Revolutionary Architecture Design
@@ -175,20 +181,25 @@ class AdvancedTrainingOrchestrator:
 
 ### Data Flow Interfaces
 
-#### Market Data Pipeline
-- **Input**: Raw OHLCV, order book, trade data
-- **Processing**: Normalization, technical indicator calculation, sequence windowing
-- **Output**: Structured tensors for CNN+LSTM input and RL environment state
+#### yfinance Data Pipeline
+- **Input**: Stock symbols, timeframes, date ranges from yfinance API
+- **Processing**: Data download, cleaning, validation, missing data handling
+- **Output**: Clean OHLCV datasets stored in efficient formats (Parquet/HDF5)
 
-#### Feature Extraction Pipeline
-- **Input**: Processed market data tensors
-- **Processing**: CNN spatial feature extraction, LSTM temporal modeling
-- **Output**: Fixed-size feature vectors for RL agent state construction
+#### Feature Engineering Pipeline
+- **Input**: Clean OHLCV data from yfinance
+- **Processing**: Technical indicator calculation, normalization, sequence windowing, feature scaling
+- **Output**: Structured feature tensors for CNN+LSTM input and RL environment state
 
-#### RL Training Pipeline
-- **Input**: Market environment, pre-trained feature extractors
-- **Processing**: Experience collection, policy updates, ensemble weight optimization
-- **Output**: Trained agent policies, performance metrics
+#### Model Training Pipeline
+- **Input**: Processed feature datasets with train/validation/test splits
+- **Processing**: CNN+LSTM feature extraction training, RL agent training, ensemble optimization
+- **Output**: Trained model checkpoints, performance metrics, validation results
+
+#### Inference Pipeline
+- **Input**: Real-time or batch market data from yfinance
+- **Processing**: Feature computation, model prediction, ensemble aggregation
+- **Output**: Trading signals, confidence scores, risk metrics
 
 ## Data Models
 
@@ -196,26 +207,34 @@ class AdvancedTrainingOrchestrator:
 
 ```python
 @dataclass
-class MarketData:
+class YFinanceData:
+    timestamp: datetime
+    symbol: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+    adj_close: float
+    
+@dataclass
+class ProcessedMarketData:
     timestamp: datetime
     symbol: str
     ohlcv: np.ndarray  # [open, high, low, close, volume]
-    order_book: OrderBook
-    trades: List[Trade]
     technical_indicators: Dict[str, float]
+    features: np.ndarray  # Engineered features
+    returns: float
+    volatility: float
 
 @dataclass
-class OrderBook:
-    bids: List[Tuple[float, float]]  # [(price, size), ...]
-    asks: List[Tuple[float, float]]
-    timestamp: datetime
-
-@dataclass
-class Trade:
-    price: float
-    size: float
-    timestamp: datetime
-    side: str  # 'buy' or 'sell'
+class DatasetSplit:
+    train_data: List[ProcessedMarketData]
+    validation_data: List[ProcessedMarketData]
+    test_data: List[ProcessedMarketData]
+    train_dates: Tuple[datetime, datetime]
+    val_dates: Tuple[datetime, datetime]
+    test_dates: Tuple[datetime, datetime]
 ```
 
 ### RL Environment Models
@@ -289,9 +308,27 @@ class RLAgentConfig:
 - **Memory Management**: Use efficient data structures and implement garbage collection for old experiences
 - **Model Versioning**: Maintain model registries with rollback capabilities
 
-## Comprehensive Training Framework
+## End-to-End ML Pipeline Framework
 
-### Complete Model Training Pipeline
+### Complete Data-to-Inference Pipeline
+
+**YFinance Data Ingestion**:
+```python
+class YFinanceDataManager:
+    def __init__(self, config: DataConfig):
+        self.symbols = config.symbols  # ['AAPL', 'GOOGL', 'MSFT', ...]
+        self.timeframes = config.timeframes  # ['1m', '5m', '15m', '1h', '1d']
+        self.start_date = config.start_date
+        self.end_date = config.end_date
+        
+    def download_data(self) -> Dict[str, pd.DataFrame]:
+        # Download data from yfinance for all symbols and timeframes
+        
+    def preprocess_data(self, raw_data: Dict) -> ProcessedDataset:
+        # Clean, validate, and prepare data for training
+        
+    def create_train_test_splits(self, data: ProcessedDataset) -> DatasetSplit:
+        # Create proper temporal splits for time series data
 
 **CNN+LSTM Feature Extractor Training**:
 ```python
@@ -301,6 +338,7 @@ class CNNLSTMTrainer:
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=config.learning_rate)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer)
         self.criterion = nn.MSELoss()
+        self.data_manager = YFinanceDataManager(config.data)
         
     def train_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
         # Complete training loop with gradient accumulation and mixed precision
@@ -308,7 +346,7 @@ class CNNLSTMTrainer:
     def validate_epoch(self, dataloader: DataLoader) -> Dict[str, float]:
         # Comprehensive validation with multiple metrics
         
-    def train_full_model(self, train_data: Dataset, val_data: Dataset) -> TrainedModel:
+    def train_full_model(self, dataset_split: DatasetSplit) -> TrainedModel:
         # Full training pipeline with early stopping and checkpointing
 ```
 
@@ -317,14 +355,18 @@ class CNNLSTMTrainer:
 class RLAgentTrainer:
     def __init__(self, config: RLConfig):
         self.agent = self._create_agent(config.agent_type)
-        self.environment = TradingEnvironment(config.env)
+        self.environment = YFinanceTradingEnvironment(config.env)
         self.replay_buffer = PrioritizedReplayBuffer(config.buffer_size)
+        self.data_manager = YFinanceDataManager(config.data)
         
-    def train_agent(self, num_episodes: int) -> TrainedAgent:
-        # Complete RL training loop with experience collection and policy updates
+    def train_agent(self, dataset_split: DatasetSplit, num_episodes: int) -> TrainedAgent:
+        # Complete RL training loop using real yfinance data
         
-    def evaluate_agent(self, test_episodes: int) -> PerformanceMetrics:
-        # Comprehensive agent evaluation on test environments
+    def evaluate_agent(self, test_data: List[ProcessedMarketData]) -> PerformanceMetrics:
+        # Comprehensive agent evaluation on out-of-sample yfinance data
+        
+    def backtest_agent(self, agent: TrainedAgent, test_data: List[ProcessedMarketData]) -> BacktestResults:
+        # Realistic backtesting with transaction costs and slippage
 ```
 
 **Ensemble Training Orchestrator**:
@@ -334,12 +376,34 @@ class EnsembleTrainer:
         self.base_models = []
         self.meta_learner = MetaLearner(config.meta)
         self.ensemble_optimizer = EnsembleOptimizer()
+        self.data_manager = YFinanceDataManager(config.data)
         
-    def train_ensemble(self, datasets: List[Dataset]) -> TrainedEnsemble:
-        # Train all base models and meta-learner with cross-validation
+    def train_ensemble(self, dataset_split: DatasetSplit) -> TrainedEnsemble:
+        # Train all base models and meta-learner using yfinance data
         
-    def optimize_ensemble_weights(self, validation_data: Dataset) -> OptimizedWeights:
-        # Bayesian optimization of ensemble combination weights
+    def optimize_ensemble_weights(self, validation_data: List[ProcessedMarketData]) -> OptimizedWeights:
+        # Optimize ensemble combination weights on validation data
+        
+    def create_inference_pipeline(self, trained_ensemble: TrainedEnsemble) -> InferencePipeline:
+        # Create end-to-end inference pipeline for live predictions
+
+**Real-time Inference System**:
+```python
+class InferencePipeline:
+    def __init__(self, trained_models: TrainedEnsemble, config: InferenceConfig):
+        self.feature_extractor = trained_models.feature_extractor
+        self.rl_agents = trained_models.rl_agents
+        self.ensemble_weights = trained_models.ensemble_weights
+        self.data_manager = YFinanceDataManager(config.data)
+        
+    def predict_live(self, symbol: str) -> PredictionResult:
+        # Get live data from yfinance and make real-time predictions
+        
+    def batch_predict(self, symbols: List[str], date_range: Tuple[datetime, datetime]) -> BatchPredictions:
+        # Make batch predictions on historical or recent data
+        
+    def update_models(self, new_data: List[ProcessedMarketData]) -> None:
+        # Incremental model updates with new market data
 ```
 
 ### Advanced Training Techniques Implementation

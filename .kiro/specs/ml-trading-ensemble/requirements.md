@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This project focuses exclusively on developing the most advanced and highest-performing machine learning models for financial market prediction and decision-making. The goal is to create state-of-the-art CNN+LSTM feature extractors and ensemble RL agents that represent the pinnacle of financial ML research and engineering. Every aspect of model development, from architecture design to training techniques to evaluation frameworks, must achieve research-grade excellence and production-level robustness.
+This project focuses exclusively on developing the most advanced and highest-performing machine learning models for financial market prediction and decision-making. The goal is to create state-of-the-art CNN+LSTM feature extractors and ensemble RL agents that represent the pinnacle of financial ML research and engineering. Every aspect of model development, from architecture design to training techniques to evaluation frameworks, must achieve research-grade excellence and production-level robustness. A key element of this design focuses on using CNN+LSTM features to provide an enriched environment to the ensemble of RL agents.
 
 ## Requirements
 
@@ -13,14 +13,14 @@ This project focuses exclusively on developing the most advanced and highest-per
 #### Acceptance Criteria
 
 1. WHEN CNN+LSTM models are fully optimized THEN they SHALL achieve >70% accuracy on price direction prediction with >0.15 information coefficient
-2. WHEN architecture search is complete THEN the models SHALL outperform all published baselines by at least 25% on standard financial benchmarks
+2. WHEN architecture search is complete THEN the models SHALL outperform average published baselines by at least 25% on standard financial benchmarks
 3. WHEN multi-scale processing is implemented THEN the system SHALL extract coherent features across 1-min to 1-hour timeframes with attention fusion
 4. WHEN feature quality is measured THEN the extracted representations SHALL achieve >0.8 correlation with expert-designed features while discovering novel patterns
 5. WHEN computational efficiency is optimized THEN inference SHALL complete in <10ms while maintaining full accuracy
 
 ### Requirement 2
 
-**User Story:** As a researcher, I want to create the most sophisticated RL agent ensemble in quantitative finance, so that the agents achieve world-class performance that surpasses institutional-grade trading systems.
+**User Story:** As a researcher, I want to create the most sophisticated RL agent ensemble in quantitative finance, so that the agents achieve world-class performance that matches institutional-grade trading systems.
 
 #### Acceptance Criteria
 
@@ -56,27 +56,27 @@ This project focuses exclusively on developing the most advanced and highest-per
 
 ### Requirement 5
 
-**User Story:** As a researcher, I want to establish the most rigorous evaluation framework in quantitative finance, so that model performance claims are scientifically validated and reproducible.
+**User Story:** As a researcher, I want to establish a rigorous evaluation framework using real market data, so that model performance claims are scientifically validated and reproducible on actual trading scenarios.
 
 #### Acceptance Criteria
 
-1. WHEN evaluation is complete THEN the system SHALL test on >20 years of data across >100 assets with proper temporal splits and no look-ahead bias
-2. WHEN statistical rigor is applied THEN the system SHALL use bootstrap confidence intervals, permutation tests, and Bayesian model comparison
-3. WHEN robustness is validated THEN models SHALL maintain performance across all major market crises, regime changes, and structural breaks
-4. WHEN interpretability is analyzed THEN the system SHALL provide causal analysis, counterfactual explanations, and mechanistic understanding
-5. WHEN benchmarking is complete THEN models SHALL outperform institutional quant strategies and published academic results by significant margins
+1. WHEN evaluation is complete THEN the system SHALL test on 10+ years of yfinance data across 50+ liquid stocks with proper temporal splits and no look-ahead bias
+2. WHEN statistical rigor is applied THEN the system SHALL use bootstrap confidence intervals, permutation tests, and statistical significance testing
+3. WHEN robustness is validated THEN models SHALL maintain performance across different market conditions including 2020 COVID crash and recovery periods
+4. WHEN backtesting is complete THEN the system SHALL provide realistic transaction costs, slippage modeling, and position sizing constraints
+5. WHEN benchmarking is finished THEN models SHALL outperform buy-and-hold and simple technical analysis baselines with statistical significance
 
 ### Requirement 6
 
-**User Story:** As a researcher, I want to create the most comprehensive and sophisticated data processing pipeline in financial ML, so that models have access to every possible signal and pattern in market data.
+**User Story:** As a researcher, I want to create a comprehensive yfinance-based data processing pipeline for financial ML, so that models have access to real market data with proper feature engineering and quality controls.
 
 #### Acceptance Criteria
 
-1. WHEN data processing is complete THEN the system SHALL handle >50 asset classes with microsecond-level tick data and full order book reconstruction
-2. WHEN feature engineering is finished THEN the system SHALL generate >1000 features including novel market microstructure and cross-asset signals
-3. WHEN data quality is optimized THEN the system SHALL achieve >99.9% data completeness with advanced imputation and bias correction techniques
-4. WHEN alternative data is integrated THEN the system SHALL incorporate satellite imagery, social media, earnings calls, and macroeconomic nowcasting
-5. WHEN data infrastructure is built THEN the system SHALL process terabytes of data with <1ms latency for feature generation
+1. WHEN data processing is complete THEN the system SHALL ingest real market data from yfinance for 100+ stocks across multiple timeframes (1m, 5m, 15m, 1h, 1d)
+2. WHEN feature engineering is finished THEN the system SHALL generate 200+ technical indicators and features from OHLCV data including momentum, volatility, volume, and price patterns
+3. WHEN data quality is optimized THEN the system SHALL achieve >99% data completeness with robust missing data handling and outlier detection
+4. WHEN data pipeline is built THEN the system SHALL automatically download, clean, and prepare training datasets with proper train/validation/test splits
+5. WHEN data infrastructure is complete THEN the system SHALL support real-time data updates and incremental feature computation for live inference
 
 ### Requirement 7
 
@@ -92,15 +92,15 @@ This project focuses exclusively on developing the most advanced and highest-per
 
 ### Requirement 8
 
-**User Story:** As a researcher, I want to create fully trained, production-ready models that represent the absolute pinnacle of financial ML performance, so that they establish new benchmarks for the field.
+**User Story:** As a researcher, I want to create fully trained, production-ready models with end-to-end inference capabilities, so that they can be deployed for real-time trading decisions on live market data.
 
 #### Acceptance Criteria
 
-1. WHEN all models are fully trained THEN they SHALL achieve record-breaking results on standard financial ML datasets with saved model checkpoints
-2. WHEN training is complete THEN the system SHALL have trained CNN+LSTM models, RL agents, and ensemble combinations ready for deployment
-3. WHEN model validation is finished THEN all trained models SHALL pass comprehensive backtesting on 5+ years of out-of-sample data
-4. WHEN training efficiency is measured THEN the system SHALL complete full model training within 7 days using available GPU resources
-5. WHEN deployment readiness is assessed THEN all models SHALL be saved, versioned, and ready for production inference with <10ms latency
+1. WHEN all models are fully trained THEN they SHALL achieve superior performance on yfinance datasets with saved model checkpoints and inference pipelines
+2. WHEN training is complete THEN the system SHALL have trained CNN+LSTM models, RL agents, and ensemble combinations with complete inference infrastructure
+3. WHEN model validation is finished THEN all trained models SHALL pass comprehensive backtesting on 3+ years of out-of-sample yfinance data
+4. WHEN inference system is built THEN the system SHALL support real-time predictions on live yfinance data with <100ms latency
+5. WHEN deployment readiness is assessed THEN all models SHALL be packaged with data pipelines, feature engineering, and prediction APIs ready for production use
 
 ### Requirement 9
 

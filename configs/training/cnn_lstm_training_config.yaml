@@ -1,0 +1,349 @@
+# CNN+LSTM Training Configuration
+# Comprehensive configuration for training CNN+LSTM feature extractors
+
+# Model Configuration
+model:
+  type: "hybrid"  # "hybrid", "cnn", "lstm"
+  
+  # Hybrid CNN+LSTM+Transformer Configuration
+  hybrid_config:
+    input_dim: 5  # OHLCV
+    sequence_length: 100
+    fusion_dim: 1024
+    fusion_heads: 8
+    fusion_dropout: 0.1
+    cross_attention_dim: 512
+    cross_attention_heads: 8
+    use_adaptive_selection: true
+    market_condition_dim: 64
+    num_market_conditions: 4
+    output_dim: 512
+    
+    # CNN sub-configuration
+    cnn_config:
+      timeframes: ["1min", "5min", "15min"]
+      num_filters: [64, 128, 256]
+      kernel_sizes: [3, 5, 7]
+      dilation_rates: [1, 2, 4]
+      use_attention: true
+      attention_heads: 8
+      dropout_rate: 0.1
+    
+    # LSTM sub-configuration
+    lstm_config:
+      lstm_hidden_dim: 256
+      num_lstm_layers: 2
+      lstm_dropout: 0.2
+      attention_dim: 512
+      num_attention_heads: 8
+      time_horizons: [10, 30, 60]
+      use_layer_norm: true
+      gradient_clip_val: 1.0
+    
+    # Transformer sub-configuration
+    transformer_config:
+      d_model: 512
+      num_heads: 8
+      num_layers: 6
+      d_ff: 2048
+      max_seq_length: 1000
+      dropout_rate: 0.1
+      use_positional_encoding: true
+
+# Training Parameters
+training:
+  num_epochs: 200
+  batch_size: 32
+  learning_rate: 1e-4
+  weight_decay: 1e-5
+  gradient_clip_val: 1.0
+  
+  # Mixed Precision Training
+  use_mixed_precision: true
+  loss_scale: "dynamic"
+  
+  # Optimization
+  optimizer: "adamw"  # "adamw", "adam", "sgd"
+  scheduler: "cosine"  # "cosine", "step", "plateau"
+  warmup_epochs: 10
+  
+  # Early Stopping
+  early_stopping:
+    patience: 20
+    min_delta: 1e-4
+    metric: "val_loss"  # "val_loss", "val_accuracy"
+  
+  # Checkpointing
+  checkpointing:
+    save_every_n_epochs: 10
+    save_best_only: true
+    checkpoint_dir: "models/checkpoints/cnn_lstm"
+  
+  # Validation
+  validation_split: 0.2
+  validation_frequency: 1  # Validate every N epochs
+  
+  # Logging and Tracking
+  logging:
+    log_every_n_steps: 100
+    track_feature_quality: true
+    use_wandb: false
+    experiment_name: "cnn_lstm_hybrid_training"
+  
+  # Multi-task Learning
+  tasks:
+    - "price_prediction"
+    - "volatility_estimation"
+    - "regime_detection"
+  
+  task_weights:
+    price_prediction: 1.0
+    volatility_estimation: 0.5
+    regime_detection: 0.3
+  
+  # Data Augmentation
+  data_augmentation:
+    enabled: true
+    noise_std: 0.01
+    temporal_jitter_prob: 0.1
+    price_scaling_range: [0.95, 1.05]
+  
+  # Device and Performance
+  device: "auto"  # "auto", "cuda", "cpu"
+  num_workers: 4
+  pin_memory: true
+
+# CNN-specific Training Configuration
+cnn_training:
+  model_type: "cnn"
+  model_config:
+    timeframes: ["1min", "5min", "15min"]
+    sequence_length: 100
+    num_features: 5
+    num_filters: [64, 128, 256, 512]
+    kernel_sizes: [3, 5, 7, 9]
+    dilation_rates: [1, 2, 4, 8]
+    use_attention: true
+    attention_heads: 8
+    dropout_rate: 0.1
+    output_dim: 512
+  
+  training:
+    num_epochs: 50
+    batch_size: 64
+    learning_rate: 2e-4
+    curriculum_learning:
+      enabled: true
+      start_complexity: 0.3
+      end_complexity: 1.0
+      complexity_schedule: "linear"
+    
+    data_augmentation:
+      noise_injection: true
+      temporal_jittering: true
+      price_scaling: true
+      pattern_masking: true
+
+# LSTM-specific Training Configuration
+lstm_training:
+  model_type: "lstm"
+  model_config:
+    input_dim: 512
+    sequence_length: 100
+    lstm_hidden_dim: 256
+    num_lstm_layers: 2
+    lstm_dropout: 0.2
+    attention_dim: 512
+    num_attention_heads: 8
+    time_horizons: [10, 30, 60]
+    use_layer_norm: true
+    gradient_clip_val: 1.0
+    output_dim: 512
+  
+  training:
+    num_epochs: 100
+    batch_size: 32
+    learning_rate: 1e-4
+    gradient_clipping: true
+    lstm_regularization:
+      dropout: 0.2
+      recurrent_dropout: 0.1
+      weight_decay: 1e-5
+    
+    attention_training:
+      learned_attention_weights: true
+      attention_dropout: 0.1
+      attention_temperature: 1.0
+
+# Hyperparameter Optimization Configuration
+hyperparameter_optimization:
+  enabled: false
+  framework: "optuna"  # "optuna", "ray_tune"
+  
+  # Optuna Configuration
+  optuna:
+    study_name: "cnn_lstm_optimization"
+    direction: "maximize"  # "minimize" for loss, "maximize" for accuracy
+    n_trials: 1000
+    pruning: true
+    pruner: "MedianPruner"
+    
+    # Search Space
+    search_space:
+      learning_rate:
+        type: "log_uniform"
+        low: 1e-5
+        high: 1e-2
+      
+      batch_size:
+        type: "categorical"
+        choices: [16, 32, 64, 128]
+      
+      fusion_dim:
+        type: "categorical"
+        choices: [512, 1024, 2048]
+      
+      num_attention_heads:
+        type: "categorical"
+        choices: [4, 8, 16]
+      
+      dropout_rate:
+        type: "uniform"
+        low: 0.0
+        high: 0.5
+      
+      weight_decay:
+        type: "log_uniform"
+        low: 1e-6
+        high: 1e-3
+  
+  # Multi-objective Optimization
+  multi_objective:
+    enabled: true
+    objectives:
+      - name: "accuracy"
+        direction: "maximize"
+        weight: 0.6
+      - name: "training_time"
+        direction: "minimize"
+        weight: 0.2
+      - name: "model_size"
+        direction: "minimize"
+        weight: 0.2
+
+# Performance Targets and Validation
+performance_targets:
+  # CNN+LSTM Performance Requirements
+  cnn_lstm_targets:
+    price_direction_accuracy: 0.70  # >70% accuracy on price direction
+    information_coefficient: 0.15   # >0.15 IC
+    convergence_epochs: 100         # Converge within 100 epochs
+    training_accuracy: 0.95         # >95% training accuracy
+    validation_accuracy: 0.70       # >70% validation accuracy
+  
+  # CNN-specific Targets
+  cnn_targets:
+    pattern_recognition_accuracy: 0.75
+    multi_timeframe_consistency: 0.80
+    feature_correlation: 0.80
+  
+  # LSTM-specific Targets
+  lstm_targets:
+    sequence_prediction_accuracy: 0.70
+    temporal_modeling_score: 0.75
+    attention_interpretability: 0.60
+  
+  # Training Performance
+  training_targets:
+    max_training_time_hours: 48
+    gpu_memory_efficiency: 0.85
+    convergence_stability: 0.90
+
+# Curriculum Learning Configuration
+curriculum_learning:
+  enabled: true
+  
+  # CNN Curriculum
+  cnn_curriculum:
+    stages:
+      - name: "simple_patterns"
+        epochs: 20
+        complexity: 0.3
+        patterns: ["trend", "support_resistance"]
+      
+      - name: "intermediate_patterns"
+        epochs: 30
+        complexity: 0.6
+        patterns: ["head_shoulders", "triangles", "flags"]
+      
+      - name: "complex_patterns"
+        epochs: 50
+        complexity: 1.0
+        patterns: ["elliott_waves", "harmonic_patterns", "multi_timeframe"]
+  
+  # LSTM Curriculum
+  lstm_curriculum:
+    stages:
+      - name: "short_sequences"
+        epochs: 30
+        sequence_length: 50
+        complexity: 0.4
+      
+      - name: "medium_sequences"
+        epochs: 40
+        sequence_length: 100
+        complexity: 0.7
+      
+      - name: "long_sequences"
+        epochs: 30
+        sequence_length: 200
+        complexity: 1.0
+
+# Validation and Testing
+validation:
+  # Cross-validation
+  cross_validation:
+    enabled: true
+    folds: 5
+    strategy: "time_series_split"
+  
+  # Walk-forward Analysis
+  walk_forward:
+    enabled: true
+    train_window: 252  # Trading days
+    test_window: 63    # Trading days
+    step_size: 21      # Trading days
+  
+  # Statistical Tests
+  statistical_tests:
+    - "bootstrap_confidence_intervals"
+    - "permutation_tests"
+    - "multiple_hypothesis_correction"
+  
+  # Performance Metrics
+  metrics:
+    - "sharpe_ratio"
+    - "information_coefficient"
+    - "hit_rate"
+    - "maximum_drawdown"
+    - "calmar_ratio"
+    - "sortino_ratio"
+
+# Resource Management
+resources:
+  # GPU Configuration
+  gpu:
+    memory_fraction: 0.9
+    allow_growth: true
+    mixed_precision: true
+  
+  # CPU Configuration
+  cpu:
+    num_threads: 8
+    parallel_data_loading: true
+  
+  # Memory Management
+  memory:
+    max_memory_gb: 32
+    garbage_collection: true
+    memory_profiling: false

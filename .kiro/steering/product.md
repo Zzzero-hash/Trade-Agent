@@ -2,29 +2,31 @@
 
 ## ML Trading Ensemble
 
-Advanced Machine Learning Trading System with CNN+LSTM Feature Extractors and Ensemble RL Agents.
+End-to-End Machine Learning Trading System using Real Market Data from yfinance.
 
-This is a research-grade machine learning project focused on developing state-of-the-art models for financial market prediction and trading. The system combines revolutionary CNN+LSTM architectures for feature extraction with sophisticated reinforcement learning agent ensembles.
+This is a practical, production-ready machine learning project focused on developing high-performance models for financial market prediction and trading using real market data. The system combines CNN+LSTM architectures for feature extraction with reinforcement learning agents, trained and validated on actual stock market data from yfinance.
 
 ## Key Components
 
-- **CNN+LSTM Feature Extractors**: Multi-scale feature extraction with attention mechanisms for market data analysis
-- **RL Agent Ensemble**: Advanced reinforcement learning agents with meta-learning capabilities for trading decisions
-- **Scientific Evaluation Framework**: Rigorous statistical validation and benchmarking infrastructure
-- **Production Infrastructure**: GPU acceleration, experiment tracking, and model versioning
+- **yfinance Data Pipeline**: Real-time and historical market data ingestion from 100+ liquid stocks
+- **CNN+LSTM Feature Extractors**: Multi-timeframe feature extraction from OHLCV data with 200+ technical indicators
+- **RL Agent Ensemble**: Reinforcement learning agents trained on realistic market environments with transaction costs
+- **End-to-End Inference System**: Complete pipeline from live data to trading signals with <100ms latency
+- **Realistic Backtesting Framework**: Comprehensive evaluation with proper temporal splits and transaction costs
 
 ## Performance Goals
 
-The project aims to achieve breakthrough performance with:
-- Sharpe ratios >2.0 with maximum drawdowns <10%
-- >70% accuracy on price direction prediction
-- Outperform institutional quantitative strategies by significant margins
-- Maintain robustness across different market conditions and time periods
+The project aims to achieve practical trading performance with:
+- Sharpe ratios >1.5 with maximum drawdowns <15% on real market data
+- Outperform buy-and-hold and technical analysis baselines with statistical significance
+- Maintain consistent performance across different market regimes (2020 COVID crash, recovery periods)
+- Generate actionable trading signals on live market data
 
-## Research Focus
+## Project Focus
 
-This is a research-oriented project that prioritizes:
-- Novel architectural innovations worthy of top-tier ML conferences
-- Scientific rigor with comprehensive statistical validation
-- Reproducibility and open-source contribution to the research community
-- Establishing new benchmarks in financial machine learning
+This is an end-to-end ML project that prioritizes:
+- **Real Data Integration**: Using actual market data from yfinance for training and evaluation
+- **Production Readiness**: Complete inference pipeline for live trading decisions
+- **Practical Performance**: Realistic evaluation with transaction costs and proper backtesting
+- **Reproducibility**: Deterministic results with version-controlled data and models
+- **Deployment Focus**: Ready-to-use system with monitoring and maintenance capabilities

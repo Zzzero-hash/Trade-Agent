@@ -10,18 +10,19 @@ ml-trading-ensemble/
 │   ├── ensemble/          # Ensemble learning components
 │   ├── checkpoints/       # Model checkpoints during training
 │   └── saved/             # Final trained models
-├── experiments/           # Experiment management and orchestration
-│   ├── runners/           # Training and evaluation scripts
-│   ├── analysis/          # Results analysis and visualization
+├── experiments/           # Training and evaluation orchestration
+│   ├── runners/           # Training scripts for CNN+LSTM and RL agents
+│   ├── backtesting/       # Realistic backtesting with transaction costs
+│   ├── analysis/          # Performance analysis and visualization
 │   ├── logs/              # Training and experiment logs
-│   ├── results/           # Experiment outputs and metrics
-│   └── tracking.py        # Experiment tracking utilities
-├── data/                  # Data pipeline and management
-│   ├── ingestion/         # Data collection and acquisition
-│   ├── preprocessing/     # Data cleaning and normalization
-│   ├── features/          # Feature engineering and extraction
-│   ├── processed/         # Processed datasets ready for training
-│   └── raw/               # Raw market data
+│   ├── results/           # Backtesting results and performance metrics
+│   └── tracking.py        # MLflow experiment tracking utilities
+├── data/                  # yfinance data pipeline and management
+│   ├── ingestion/         # yfinance data download and collection
+│   ├── preprocessing/     # Data cleaning, validation, and temporal splits
+│   ├── features/          # Technical indicators and feature engineering
+│   ├── processed/         # Processed datasets with train/val/test splits
+│   └── raw/               # Raw OHLCV data from yfinance
 ├── configs/               # Configuration files
 │   ├── models/            # Model architecture configurations
 │   ├── experiments/       # Experiment setup configurations
@@ -31,6 +32,10 @@ ml-trading-ensemble/
 ├── utils/                 # Utility functions and helpers
 │   ├── gpu_utils.py       # GPU management and mixed precision
 │   └── __init__.py
+├── inference/             # Real-time inference and prediction system
+│   ├── pipeline.py        # End-to-end inference pipeline
+│   ├── api.py             # REST API for trading signals
+│   └── monitoring.py      # Performance monitoring and alerts
 ├── outputs/               # Generated outputs and artifacts
 └── .kiro/                 # Kiro IDE configuration and specs
 ```
@@ -43,16 +48,19 @@ ml-trading-ensemble/
 - **Configuration**: Models accept configuration objects for hyperparameters
 - **Checkpointing**: Automatic model checkpointing during training
 
-### Experiment Management
-- **experiments/runners/**: Executable scripts for training and evaluation
-- **experiments/tracking.py**: Centralized experiment tracking utilities
-- **Reproducibility**: All experiments use deterministic seeds and version control
+### Training and Evaluation Management
+- **experiments/runners/**: Training scripts for CNN+LSTM and RL agents on yfinance data
+- **experiments/backtesting/**: Realistic backtesting with transaction costs and slippage
+- **experiments/tracking.py**: MLflow tracking for experiments and model versioning
+- **Reproducibility**: Deterministic training with fixed seeds and data splits
+- **Performance Validation**: Statistical significance testing and confidence intervals
 
-### Data Pipeline
-- **data/raw/**: Never modify raw data, keep original sources intact
-- **data/processed/**: Versioned processed datasets with DVC tracking
-- **data/features/**: Feature engineering outputs with metadata
-- **Immutable Processing**: Data transformations are reproducible and versioned
+### yfinance Data Pipeline
+- **data/raw/**: Raw OHLCV data from yfinance, never modified after download
+- **data/processed/**: Clean datasets with proper train/validation/test temporal splits
+- **data/features/**: Technical indicators and engineered features with metadata
+- **Reproducible Processing**: All data transformations are deterministic and versioned
+- **Real-time Updates**: Support for incremental data updates and live inference
 
 ### Configuration Management
 - **YAML-based**: All configurations use YAML format for readability
@@ -131,41 +139,67 @@ Module docstring describing the model's purpose and architecture.
 
 import torch
 import torch.nn as nn
-from typing import Dict, Any, Optional
+import yfinance as yf
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+import numpy as np
 
 @dataclass
 class ModelConfig:
     """Configuration for the model."""
-    pass
+    sequence_length: int = 60
+    feature_dim: int = 200
+    symbols: List[str] = None
+    timeframes: List[str] = None
 
-class ModelName(nn.Module):
-    """Model implementation with clear documentation."""
+class YFinanceModelBase(nn.Module):
+    """Base model for yfinance data processing."""
     
     def __init__(self, config: ModelConfig):
         super().__init__()
+        self.config = config
         # Implementation
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass with type hints."""
+    def forward(self, market_data: torch.Tensor) -> torch.Tensor:
+        """Forward pass with yfinance market data."""
+        pass
+    
+    def preprocess_yfinance_data(self, data: Dict[str, Any]) -> torch.Tensor:
+        """Convert yfinance data to model input format."""
         pass
 ```
 
-### Experiment Runner
+### Training Runner
 ```python
 """
-Experiment runner with comprehensive logging and tracking.
+Training runner for yfinance-based models with MLflow tracking.
 """
 
 import logging
+import yfinance as yf
 from pathlib import Path
 from experiments.tracking import ExperimentTracker
+from data.ingestion.yfinance_manager import YFinanceDataManager
 
 logger = logging.getLogger(__name__)
 
 def main():
-    """Main experiment execution."""
+    """Main training execution with yfinance data."""
+    # Initialize data manager
+    data_manager = YFinanceDataManager(
+        symbols=['AAPL', 'GOOGL', 'MSFT', 'TSLA'],
+        timeframes=['1d', '1h'],
+        start_date='2020-01-01',
+        end_date='2024-01-01'
+    )
+    
+    # Download and prepare data
+    dataset = data_manager.prepare_training_data()
+    
+    # Initialize experiment tracking
     tracker = ExperimentTracker()
+    
+    # Train model with real market data
     # Implementation
 
 if __name__ == "__main__":
