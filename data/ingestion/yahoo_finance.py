@@ -68,8 +68,11 @@ class YahooFinanceIngestor:
             DataFrame with OHLCV data or None if failed
         """
         try:
+            # Adjust date ranges based on Yahoo Finance limitations
+            adjusted_start, adjusted_end = self._adjust_dates_for_interval(start_date, end_date, interval)
+            
             # Check cache first
-            cache_file = self.cache_dir / f"{symbol}_{start_date}_{end_date}_{interval}.parquet"
+            cache_file = self.cache_dir / f"{symbol}_{adjusted_start}_{adjusted_end}_{interval}.parquet"
             if cache and cache_file.exists():
                 logger.info(f"Loading {symbol} data from cache: {cache_file}")
                 return pd.read_parquet(cache_file)
@@ -80,16 +83,14 @@ class YahooFinanceIngestor:
             
             # For 1m interval, we can only get 7 days at a time and only recent data
             if interval == "1m":
-                # Adjust dates to be within the last 30 days for 1m data
-                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-                start_dt = end_dt - timedelta(days=29)  # Stay within 30-day limit
-                start_date = start_dt.strftime("%Y-%m-%d")
-                
-                data = self._fetch_1m_data_in_chunks(ticker, start_date, end_date)
+                data = self._fetch_1m_data_in_chunks(ticker, adjusted_start, adjusted_end)
+            elif interval in ["5m", "15m"]:
+                # 5m and 15m data limited to last 60 days
+                data = self._fetch_intraday_data_in_chunks(ticker, adjusted_start, adjusted_end, interval)
             else:
                 data = ticker.history(
-                    start=start_date,
-                    end=end_date,
+                    start=adjusted_start,
+                    end=adjusted_end,
                     interval=interval,
                     auto_adjust=False,
                     back_adjust=False
@@ -166,6 +167,71 @@ class YahooFinanceIngestor:
             logger.error(f"Error fetching data for {symbol}: {e}")
             return None
     
+    def _adjust_dates_for_interval(self, start_date: str, end_date: str, interval: str) -> Tuple[str, str]:
+        """
+        Adjust date ranges based on Yahoo Finance limitations for different intervals.
+        
+        Args:
+            start_date: Original start date
+            end_date: Original end date  
+            interval: Data interval
+            
+        Returns:
+            Tuple of (adjusted_start_date, adjusted_end_date)
+        """
+        end_dt = datetime.now()
+        
+        if interval == "1m":
+            # 1m data only available for last 30 days
+            start_dt = end_dt - timedelta(days=29)
+        elif interval in ["5m", "15m"]:
+            # 5m and 15m data only available for last 60 days
+            start_dt = end_dt - timedelta(days=59)
+        else:
+            # Daily and longer intervals can use original dates
+            try:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            except:
+                # Fallback to recent data if date parsing fails
+                end_dt = datetime.now()
+                start_dt = end_dt - timedelta(days=365)
+        
+        return start_dt.strftime("%Y-%m-%d"), end_dt.strftime("%Y-%m-%d")
+    
+    def _fetch_intraday_data_in_chunks(
+        self,
+        ticker: yf.Ticker,
+        start_date: str,
+        end_date: str,
+        interval: str
+    ) -> pd.DataFrame:
+        """
+        Fetch intraday data (5m, 15m) in chunks due to Yahoo Finance limitations.
+        
+        Args:
+            ticker: Yahoo Finance ticker object
+            start_date: Start date in YYYY-MM-DD format
+            end_date: End date in YYYY-MM-DD format
+            interval: Data interval
+            
+        Returns:
+            Combined DataFrame with all data
+        """
+        try:
+            # For 5m and 15m, we can get all data in one request within 60 days
+            data = ticker.history(
+                start=start_date,
+                end=end_date,
+                interval=interval,
+                auto_adjust=False,
+                back_adjust=False
+            )
+            return data
+        except Exception as e:
+            logger.error(f"Error fetching {interval} data: {e}")
+            return pd.DataFrame()
+
     def _fetch_1m_data_in_chunks(
         self,
         ticker: yf.Ticker,

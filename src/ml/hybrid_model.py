@@ -47,7 +47,7 @@ class HybridModelConfig(ModelConfig):
     
     # Multi-task configuration
     num_classes: int = 3  # Buy, Hold, Sell
-    regression_targets: int = 1  # Price prediction
+    regression_targets: int = 2  # Price prediction + volatility estimation
     
     # Ensemble configuration
     num_ensemble_models: int = 5
@@ -61,6 +61,16 @@ class HybridModelConfig(ModelConfig):
     classification_weight: float = 0.4
     regression_weight: float = 0.6
     dropout_rate: float = 0.3
+    
+    # Optimizer configuration
+    optimizer_type: str = "adamw"  # "adam", "adamw", "sgd"
+    scheduler_type: str = "cosine"  # "cosine", "step", "exponential", "none"
+    step_size: int = 20
+    gamma: float = 0.5
+    
+    # Feature fusion configuration
+    fusion_dim: int = 512
+    fusion_heads: int = 8
     
     def __post_init__(self):
         if self.cnn_filter_sizes is None:
@@ -203,9 +213,11 @@ class CNNLSTMHybridModel(BasePyTorchModel):
         """Build CNN+LSTM hybrid architecture"""
         
         # CNN Feature Extractor
+        # After transposing data: (batch, sequence_length, features)
+        # CNN expects (batch, channels, sequence) so channels = sequence_length
         cnn_config = ModelConfig(
             model_type="CNNFeatureExtractor",
-            input_dim=self.config.input_dim,
+            input_dim=self.config.sequence_length,  # Use sequence_length as input channels
             output_dim=self.config.feature_fusion_dim // 2,
             hidden_dims=[self.config.cnn_num_filters * len(self.config.cnn_filter_sizes)],
             learning_rate=self.config.learning_rate,
@@ -741,7 +753,7 @@ def create_hybrid_config(
     sequence_length: int = 60,
     prediction_horizon: int = 10,
     num_classes: int = 3,
-    regression_targets: int = 1,
+    regression_targets: int = 2,  # Price prediction + volatility estimation
     **kwargs
 ) -> HybridModelConfig:
     """Create configuration for CNN+LSTM hybrid model"""
