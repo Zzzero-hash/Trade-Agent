@@ -537,39 +537,82 @@ class IntegratedCNNLSTMTrainer:
         # The CNN outputs features based on the number of filters and filter sizes
         # Let's use a more flexible approach
         
-        # Test CNN output dimension with a dummy input
-        with torch.no_grad():
-            dummy_input = torch.randn(1, self.config.input_dim, self.config.sequence_length).to(self.device)
-            cnn_output = self.cnn_baseline.forward(dummy_input)
-            
-            # Apply the same processing that will be used during training
-            if cnn_output.dim() > 2:
-                # Apply adaptive pooling and flatten
-                pooled = nn.AdaptiveAvgPool1d(1)(cnn_output)
-                flattened = pooled.view(pooled.size(0), -1)
-                final_dim = flattened.size(1)
-            else:
-                final_dim = cnn_output.size(1)
+        # Create flexible CNN baseline heads that adapt to any CNN output shape
+        # This avoids dimension mismatch issues during training
         
-        logger.info(f"CNN baseline output dimension: {final_dim}")
+        class FlexibleCNNHead(nn.Module):
+            def __init__(self, output_dim, dropout_rate=0.3):
+                super().__init__()
+                self.output_dim = output_dim
+                self.dropout_rate = dropout_rate
+                self.dropout = nn.Dropout(dropout_rate)
+                self.relu = nn.ReLU()
+                
+                # Track the expected input dimension
+                self.expected_input_dim = None
+                self.linear1 = None
+                self.linear2 = None
+                
+            def forward(self, x):
+                # Handle different input shapes dynamically
+                if x.dim() > 2:
+                    # For 3D inputs like (batch, channels, sequence), apply global average pooling
+                    # This handles CNN outputs properly
+                    x = torch.mean(x, dim=-1)  # Average over the last dimension (sequence/spatial)
+                    # Now x is (batch, channels)
+                elif x.dim() == 2:
+                    # Already 2D (batch, features), keep as is
+                    pass
+                elif x.dim() == 1:
+                    # 1D case, add batch dimension
+                    x = x.unsqueeze(0)
+                else:
+                    # Handle any other weird cases by flattening
+                    x = x.view(x.size(0), -1)
+                
+                # Ensure we have a 2D tensor (batch_size, features)
+                if x.dim() != 2:
+                    x = x.view(x.size(0), -1)
+                
+                current_input_dim = x.size(1)
+                
+                # Create or recreate linear layers if input dimension changed
+                if (self.linear1 is None or 
+                    self.expected_input_dim != current_input_dim):
+                    
+                    hidden_dim = max(64, current_input_dim // 2)  # Adaptive hidden dimension
+                    
+                    self.linear1 = nn.Linear(current_input_dim, hidden_dim).to(x.device)
+                    self.linear2 = nn.Linear(hidden_dim, self.output_dim).to(x.device)
+                    
+                    # Initialize weights
+                    nn.init.xavier_uniform_(self.linear1.weight)
+                    nn.init.xavier_uniform_(self.linear2.weight)
+                    
+                    self.expected_input_dim = current_input_dim
+                    
+                    logger.info(f"Created/updated dynamic layers: {current_input_dim} -> {hidden_dim} -> {self.output_dim}")
+                
+                # Forward pass
+                x = self.linear1(x)
+                x = self.relu(x)
+                x = self.dropout(x)
+                x = self.linear2(x)
+                
+                return x
         
-        self.cnn_baseline.classification_head = nn.Sequential(
-            nn.AdaptiveAvgPool1d(1) if cnn_output.dim() > 2 else nn.Identity(),
-            nn.Flatten(),
-            nn.Linear(final_dim, 64),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(64, self.config.num_classes)
-        ).to(self.device)
+        # Create flexible heads for CNN baseline
+        self.cnn_baseline.classification_head = FlexibleCNNHead(
+            output_dim=self.config.num_classes,
+            dropout_rate=0.3
+        )
         
-        self.cnn_baseline.regression_head = nn.Sequential(
-            nn.AdaptiveAvgPool1d(1) if cnn_output.dim() > 2 else nn.Identity(),
-            nn.Flatten(),
-            nn.Linear(final_dim, 64),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(64, self.config.regression_targets)
-        ).to(self.device)
+        self.cnn_baseline.regression_head = FlexibleCNNHead(
+            output_dim=self.config.regression_targets,
+            dropout_rate=0.3
+        )
+        
+        logger.info("Created flexible CNN baseline heads that adapt to any output shape")
         
         # Test LSTM output dimension
         with torch.no_grad():
