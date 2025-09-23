@@ -1385,18 +1385,18 @@ def main():
         logger.info("\n" + "="*80)
         logger.info("TASK 5.4 COMPLETION SUMMARY")
         logger.info("="*80)
-        logger.info("✓ Trained end-to-end CNN+LSTM model with joint optimization for 200+ epochs")
-        logger.info("✓ Implemented feature fusion training with learnable combination weights")
-        logger.info("✓ Added multi-task learning for price prediction, volatility estimation, and regime detection")
-        logger.info("✓ Validated integrated model performance against individual CNN and LSTM baselines")
-        logger.info(f"✓ Best validation loss: {integrated_results['best_val_loss']:.6f}")
-        logger.info(f"✓ Total epochs trained: {integrated_results['epochs_trained']}")
+        logger.info("[COMPLETED] Trained end-to-end CNN+LSTM model with joint optimization for 200+ epochs")
+        logger.info("[COMPLETED] Implemented feature fusion training with learnable combination weights")
+        logger.info("[COMPLETED] Added multi-task learning for price prediction, volatility estimation, and regime detection")
+        logger.info("[COMPLETED] Validated integrated model performance against individual CNN and LSTM baselines")
+        logger.info(f"[RESULT] Best validation loss: {integrated_results['best_val_loss']:.6f}")
+        logger.info(f"[RESULT] Total epochs trained: {integrated_results['epochs_trained']}")
         
         if 'integrated' in evaluation_results:
             int_results = evaluation_results['integrated']
-            logger.info(f"✓ Final test accuracy: {int_results['classification_accuracy']:.4f}")
-            logger.info(f"✓ Final test MSE: {int_results['regression_mse']:.6f}")
-            logger.info(f"✓ Final test R²: {int_results['regression_r2']:.4f}")
+            logger.info(f"[RESULT] Final test accuracy: {int_results['classification_accuracy']:.4f}")
+            logger.info(f"[RESULT] Final test MSE: {int_results['regression_mse']:.6f}")
+            logger.info(f"[RESULT] Final test R2: {int_results['regression_r2']:.4f}")
         
         logger.info("="*80)
         logger.info("Task 5.4 completed successfully!")

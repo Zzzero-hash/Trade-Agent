@@ -109,9 +109,7 @@
     - Validate temporal modeling capability using sequence prediction tasks
     - _Requirements: 1.3, 3.1, 9.2_
 
-  - [ ] 5.4 Train integrated CNN+LSTM hybrid architecture
-
-
+  - [x] 5.4 Train integrated CNN+LSTM hybrid architecture
     - Train end-to-end CNN+LSTM model with joint optimization for 200+ epochs
     - Implement feature fusion training with learnable combination weights
     - Add multi-task learning for price prediction, volatility estimation, and regime detection
@@ -119,6 +117,7 @@
     - _Requirements: 1.4, 3.1, 9.2_
 
   - [ ] 5.5 Optimize CNN+LSTM hyperparameters with automated search
+
     - Implement Optuna-based hyperparameter optimization for learning rates, architectures, regularization
     - Run 1000+ hyperparameter trials with early pruning for efficiency
     - Create multi-objective optimization balancing accuracy, training time, and model size
