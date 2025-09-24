@@ -6,18 +6,19 @@ reinforcement learning agents, including multi-objective rewards, risk-adjusted
 performance metrics, and dynamic reward shaping based on market conditions.
 """
 
+import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import warnings
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from src.ml.yfinance_trading_environment import MarketRegime
+from .yfinance_trading_environment import MarketRegime
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore', category=RuntimeWarning)
@@ -840,3 +841,345 @@ if __name__ == "__main__":
         'AAPL', 1000, 150, 100000, 0.2
     )
     print(f"Position size check: {valid}, {msg}")
+
+
+class AdvancedRewardCalculator:
+    """Advanced reward calculator with comprehensive risk metrics and performance analysis."""
+    
+    def __init__(self, config: Optional[RewardConfig] = None):
+        """Initialize advanced reward calculator.
+        
+        Args:
+            config: Reward configuration, uses default if None
+        """
+        self.config = config or RewardConfig()
+        self.risk_calculator = RiskMetricsCalculator(self.config)
+        self.constraints = PortfolioConstraints(self.config)
+        
+        # Initialize reward functions
+        self.reward_functions = {
+            'simple_return': SimpleReturnReward(self.config),
+            'sharpe_ratio': SharpeRatioReward(self.config),
+            'sortino_ratio': SortinoRatioReward(self.config),
+            'calmar_ratio': CalmarRatioReward(self.config),
+            'multi_objective': MultiObjectiveReward(self.config),
+            'regime_adaptive': RegimeAdaptiveReward(self.config)
+        }
+        
+        # Performance tracking
+        self.performance_history = []
+        self.risk_metrics_history = []
+        
+    def calculate_comprehensive_reward(
+        self,
+        portfolio_value: float,
+        previous_value: float,
+        trade_results: List[Dict],
+        market_regime: MarketRegime,
+        portfolio_state: Dict,
+        reward_type: str = 'multi_objective',
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Calculate comprehensive reward with detailed breakdown.
+        
+        Args:
+            portfolio_value: Current portfolio value
+            previous_value: Previous portfolio value
+            trade_results: List of trade execution results
+            market_regime: Current market regime
+            portfolio_state: Current portfolio state
+            reward_type: Type of reward function to use
+            **kwargs: Additional parameters
+            
+        Returns:
+            Dictionary with reward breakdown and metrics
+        """
+        # Get reward function
+        reward_func = self.reward_functions.get(reward_type)
+        if reward_func is None:
+            raise ValueError(f"Unknown reward type: {reward_type}")
+        
+        # Calculate primary reward
+        primary_reward = reward_func.calculate_reward(
+            portfolio_value=portfolio_value,
+            previous_value=previous_value,
+            trade_results=trade_results,
+            market_regime=market_regime,
+            portfolio_state=portfolio_state,
+            **kwargs
+        )
+        
+        # Calculate additional metrics
+        portfolio_return = (portfolio_value - previous_value) / previous_value if previous_value > 0 else 0
+        
+        # Risk metrics
+        risk_metrics = self._calculate_risk_metrics(portfolio_state, portfolio_return)
+        
+        # Performance metrics
+        performance_metrics = self._calculate_performance_metrics(
+            portfolio_value, previous_value, portfolio_state
+        )
+        
+        # Constraint violations
+        constraint_violations = self._check_constraints(portfolio_state)
+        
+        # Compile comprehensive result
+        result = {
+            'primary_reward': primary_reward,
+            'portfolio_return': portfolio_return,
+            'portfolio_value': portfolio_value,
+            'market_regime': market_regime.name if isinstance(market_regime, MarketRegime) else str(market_regime),
+            'risk_metrics': risk_metrics,
+            'performance_metrics': performance_metrics,
+            'constraint_violations': constraint_violations,
+            'trade_results': trade_results,
+            'reward_type': reward_type,
+            'timestamp': pd.Timestamp.now().isoformat()
+        }
+        
+        # Update history
+        self.performance_history.append(result)
+        self.risk_metrics_history.append(risk_metrics)
+        
+        return result
+    
+    def _calculate_risk_metrics(self, portfolio_state: Dict, portfolio_return: float) -> Dict[str, float]:
+        """Calculate comprehensive risk metrics."""
+        metrics = {}
+        
+        # Basic risk metrics
+        metrics['portfolio_return'] = portfolio_return
+        metrics['drawdown'] = portfolio_state.get('drawdown', 0)
+        metrics['exposure'] = portfolio_state.get('exposure', 0)
+        
+        # VaR and CVaR if we have return history
+        if hasattr(self, 'return_history') and len(self.return_history) >= 10:
+            returns_array = np.array(self.return_history[-self.config.lookback_window:])
+            metrics['var_5pct'] = self.risk_calculator.calculate_var(returns_array, 0.05)
+            metrics['cvar_5pct'] = self.risk_calculator.calculate_cvar(returns_array, 0.05)
+            metrics['downside_deviation'] = self.risk_calculator.calculate_downside_deviation(returns_array)
+        else:
+            metrics['var_5pct'] = 0.0
+            metrics['cvar_5pct'] = 0.0
+            metrics['downside_deviation'] = 0.0
+        
+        # Portfolio concentration
+        positions = portfolio_state.get('positions', {})
+        current_prices = portfolio_state.get('current_prices', {})
+        
+        if positions and current_prices:
+            position_values = [
+                positions.get(symbol, 0) * current_prices.get(symbol, 0)
+                for symbol in positions.keys()
+            ]
+            total_value = sum(position_values)
+            
+            if total_value > 0:
+                weights = [value / total_value for value in position_values]
+                metrics['concentration_hhi'] = sum(w**2 for w in weights)
+                metrics['max_position_weight'] = max(weights) if weights else 0
+            else:
+                metrics['concentration_hhi'] = 0
+                metrics['max_position_weight'] = 0
+        else:
+            metrics['concentration_hhi'] = 0
+            metrics['max_position_weight'] = 0
+        
+        return metrics
+    
+    def _calculate_performance_metrics(
+        self, 
+        portfolio_value: float, 
+        previous_value: float, 
+        portfolio_state: Dict
+    ) -> Dict[str, float]:
+        """Calculate performance metrics."""
+        metrics = {}
+        
+        # Basic performance
+        metrics['portfolio_value'] = portfolio_value
+        metrics['portfolio_return'] = (portfolio_value - previous_value) / previous_value if previous_value > 0 else 0
+        
+        # Calculate rolling metrics if we have enough history
+        if len(self.performance_history) >= 2:
+            recent_returns = [
+                h['portfolio_return'] for h in self.performance_history[-self.config.lookback_window:]
+            ]
+            
+            if recent_returns:
+                returns_array = np.array(recent_returns)
+                
+                # Sharpe ratio
+                excess_returns = returns_array - (self.config.risk_free_rate / 252)
+                if np.std(excess_returns) > 0:
+                    metrics['sharpe_ratio'] = np.mean(excess_returns) / np.std(excess_returns) * np.sqrt(252)
+                else:
+                    metrics['sharpe_ratio'] = 0
+                
+                # Sortino ratio
+                negative_returns = excess_returns[excess_returns < 0]
+                if len(negative_returns) > 0 and np.std(negative_returns) > 0:
+                    metrics['sortino_ratio'] = np.mean(excess_returns) / np.std(negative_returns) * np.sqrt(252)
+                else:
+                    metrics['sortino_ratio'] = metrics['sharpe_ratio']
+                
+                # Volatility
+                metrics['volatility'] = np.std(returns_array) * np.sqrt(252)
+                
+                # Maximum drawdown from recent history
+                recent_values = [h['portfolio_value'] for h in self.performance_history[-self.config.lookback_window:]]
+                if recent_values:
+                    metrics['max_drawdown'] = self.risk_calculator.calculate_maximum_drawdown(np.array(recent_values))
+                else:
+                    metrics['max_drawdown'] = 0
+        else:
+            metrics['sharpe_ratio'] = 0
+            metrics['sortino_ratio'] = 0
+            metrics['volatility'] = 0
+            metrics['max_drawdown'] = 0
+        
+        return metrics
+    
+    def _check_constraints(self, portfolio_state: Dict) -> List[Dict[str, str]]:
+        """Check portfolio constraints and return violations."""
+        violations = []
+        
+        positions = portfolio_state.get('positions', {})
+        current_prices = portfolio_state.get('current_prices', {})
+        portfolio_value = portfolio_state.get('portfolio_value', 0)
+        
+        # Check total exposure
+        is_valid, message = self.constraints.check_total_exposure_constraint(
+            positions, current_prices, portfolio_value
+        )
+        if not is_valid:
+            violations.append({'type': 'total_exposure', 'message': message})
+        
+        # Check concentration
+        is_valid, message = self.constraints.check_concentration_constraint(
+            positions, current_prices
+        )
+        if not is_valid:
+            violations.append({'type': 'concentration', 'message': message})
+        
+        # Check drawdown
+        max_value = portfolio_state.get('max_portfolio_value', portfolio_value)
+        is_valid, message = self.constraints.check_drawdown_constraint(
+            portfolio_value, max_value
+        )
+        if not is_valid:
+            violations.append({'type': 'drawdown', 'message': message})
+        
+        return violations
+    
+    def get_performance_summary(self, lookback_periods: int = None) -> Dict[str, Any]:
+        """Get comprehensive performance summary.
+        
+        Args:
+            lookback_periods: Number of periods to look back, None for all
+            
+        Returns:
+            Performance summary dictionary
+        """
+        if not self.performance_history:
+            return {'error': 'No performance history available'}
+        
+        # Select data
+        if lookback_periods is None:
+            history = self.performance_history
+        else:
+            history = self.performance_history[-lookback_periods:]
+        
+        if not history:
+            return {'error': 'No data in specified lookback period'}
+        
+        # Extract metrics
+        returns = [h['portfolio_return'] for h in history]
+        values = [h['portfolio_value'] for h in history]
+        rewards = [h['primary_reward'] for h in history]
+        
+        # Calculate summary statistics
+        summary = {
+            'total_periods': len(history),
+            'total_return': (values[-1] - values[0]) / values[0] if len(values) > 1 and values[0] > 0 else 0,
+            'annualized_return': np.mean(returns) * 252 if returns else 0,
+            'volatility': np.std(returns) * np.sqrt(252) if len(returns) > 1 else 0,
+            'max_drawdown': self.risk_calculator.calculate_maximum_drawdown(np.array(values)),
+            'sharpe_ratio': 0,
+            'sortino_ratio': 0,
+            'calmar_ratio': 0,
+            'win_rate': sum(1 for r in returns if r > 0) / len(returns) if returns else 0,
+            'avg_reward': np.mean(rewards) if rewards else 0,
+            'reward_volatility': np.std(rewards) if len(rewards) > 1 else 0
+        }
+        
+        # Calculate risk-adjusted metrics
+        if len(returns) > 1:
+            excess_returns = np.array(returns) - (self.config.risk_free_rate / 252)
+            
+            # Sharpe ratio
+            if np.std(excess_returns) > 0:
+                summary['sharpe_ratio'] = np.mean(excess_returns) / np.std(excess_returns) * np.sqrt(252)
+            
+            # Sortino ratio
+            negative_returns = excess_returns[excess_returns < 0]
+            if len(negative_returns) > 0 and np.std(negative_returns) > 0:
+                summary['sortino_ratio'] = np.mean(excess_returns) / np.std(negative_returns) * np.sqrt(252)
+            else:
+                summary['sortino_ratio'] = summary['sharpe_ratio']
+            
+            # Calmar ratio
+            if summary['max_drawdown'] > 0:
+                summary['calmar_ratio'] = summary['annualized_return'] / summary['max_drawdown']
+        
+        # Add constraint violation summary
+        all_violations = []
+        for h in history:
+            all_violations.extend(h.get('constraint_violations', []))
+        
+        violation_counts = {}
+        for violation in all_violations:
+            violation_type = violation['type']
+            violation_counts[violation_type] = violation_counts.get(violation_type, 0) + 1
+        
+        summary['constraint_violations'] = violation_counts
+        summary['total_violations'] = len(all_violations)
+        
+        return summary
+    
+    def reset(self):
+        """Reset calculator state."""
+        self.performance_history = []
+        self.risk_metrics_history = []
+        
+        # Reset all reward functions
+        for reward_func in self.reward_functions.values():
+            reward_func.reset()
+    
+    def save_performance_data(self, filepath: str):
+        """Save performance data to file.
+        
+        Args:
+            filepath: Path to save data
+        """
+        data = {
+            'performance_history': self.performance_history,
+            'risk_metrics_history': self.risk_metrics_history,
+            'config': self.config.__dict__,
+            'summary': self.get_performance_summary()
+        }
+        
+        with open(filepath, 'w') as f:
+            json.dump(data, f, indent=2, default=str)
+    
+    def load_performance_data(self, filepath: str):
+        """Load performance data from file.
+        
+        Args:
+            filepath: Path to load data from
+        """
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        
+        self.performance_history = data.get('performance_history', [])
+        self.risk_metrics_history = data.get('risk_metrics_history', [])

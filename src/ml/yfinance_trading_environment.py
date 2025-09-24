@@ -19,7 +19,7 @@ import pandas as pd
 import yfinance as yf
 from sklearn.preprocessing import StandardScaler, RobustScaler
 
-from data.ingestion.yahoo_finance import YahooFinanceIngestor
+# from data.ingestion.yahoo_finance import YahooFinanceIngestor
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore', category=FutureWarning)
@@ -196,14 +196,24 @@ class YFinanceTradingEnvironment(gym.Env):
     def _load_market_data(self, data_source: str, cache_dir: str) -> pd.DataFrame:
         """Load market data from yfinance or cache."""
         if data_source == "yfinance":
-            ingestor = YahooFinanceIngestor(cache_dir)
-            data_dict = ingestor.fetch_multiple_symbols(
-                symbols=self.symbols,
-                start_date=self.start_date,
-                end_date=self.end_date,
-                interval="1d",  # Daily data for stability
-                cache=True
-            )
+            # Use yfinance directly
+            data_dict = {}
+            for symbol in self.symbols:
+                try:
+                    ticker = yf.Ticker(symbol)
+                    data = ticker.history(
+                        start=self.start_date,
+                        end=self.end_date,
+                        interval="1d"
+                    )
+                    if not data.empty:
+                        data_dict[symbol] = data
+                        logger.info(f"Downloaded {len(data)} records for {symbol}")
+                    else:
+                        logger.warning(f"No data found for {symbol}")
+                except Exception as e:
+                    logger.error(f"Failed to download data for {symbol}: {e}")
+                    continue
             
             # Combine all symbol data
             all_data = []
@@ -478,13 +488,28 @@ class YFinanceTradingEnvironment(gym.Env):
         return observation, reward, terminated, truncated, info
     
     def _parse_action(self, action: np.ndarray) -> List[Dict]:
-        """Parse and validate action array."""
+        """Parse and validate action array with improved continuous action handling."""
         actions = []
         
         for i, symbol in enumerate(self.symbols):
             action_idx = i * 2
-            action_type = int(np.clip(action[action_idx], 0, 2))
-            position_size = np.clip(action[action_idx + 1], 0, self.config.max_position_size)
+            
+            # Improved action type interpretation for continuous actions
+            raw_action = action[action_idx]
+            if raw_action < -0.33:
+                action_type = 2  # SELL
+            elif raw_action > 0.33:
+                action_type = 1  # BUY
+            else:
+                action_type = 0  # HOLD
+            
+            # Position size with minimum threshold for meaningful trades
+            raw_position_size = action[action_idx + 1]
+            position_size = np.clip(raw_position_size, 0, self.config.max_position_size)
+            
+            # Only execute trades if position size is meaningful (> 1% of max)
+            if action_type != 0 and position_size < 0.01:
+                action_type = 0  # Convert to HOLD if position too small
             
             actions.append({
                 'symbol': symbol,
@@ -538,7 +563,7 @@ class YFinanceTradingEnvironment(gym.Env):
                 max_shares = position_value / current_price
                 shares_to_buy = max_shares
                 
-                if shares_to_buy > 0 and position_value > 100:  # Minimum trade size
+                if shares_to_buy > 0 and position_value > 50:  # Reduced minimum trade size
                     # Calculate slippage based on position size
                     size_impact = (position_value / self.portfolio_value) * self.config.slippage_impact
                     total_slippage = self.config.slippage_base + size_impact
@@ -713,14 +738,24 @@ class YFinanceTradingEnvironment(gym.Env):
         elif current_regime == MarketRegime.BULL_MARKET and current_exposure > 0.6:
             regime_bonus = 0.005  # Small bonus for higher exposure in bull markets
         
-        # Very simple reward: just portfolio return with minimal penalties
+        # Enhanced reward with better scaling for learning
+        base_reward = portfolio_return * 100.0  # Increased scaling for better learning signal
+        
+        # Add small exploration bonus for taking actions
+        action_bonus = 0.001 if len([r for r in trade_results if r['executed']]) > 0 else 0.0
+        
+        # Combine components
         reward = (
-            portfolio_return * 10.0 +   # Reduced scaling from 100 to 10
-            sharpe_component * 0.01 +   # Minimal Sharpe component
-            drawdown_penalty * 0.1 +    # Reduced drawdown penalty
-            transaction_penalty * 0.1   # Reduced transaction penalty
-            # Removed risk and regime bonuses for simplicity
+            base_reward +               # Main portfolio return component
+            sharpe_component * 0.1 +    # Sharpe ratio component
+            drawdown_penalty * 0.5 +    # Drawdown penalty
+            transaction_penalty * 0.5 + # Transaction penalty
+            action_bonus                # Small bonus for taking actions
         )
+        
+        # Ensure reward is not exactly zero (helps with learning)
+        if abs(reward) < 1e-6:
+            reward = 0.001  # Small positive reward to encourage exploration
         
         # Optional debug logging (disabled for performance)
         # if self.current_step < 5:

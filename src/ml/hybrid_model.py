@@ -200,7 +200,7 @@ class CNNLSTMHybridModel(BasePyTorchModel):
     """
     
     def __init__(self, config: HybridModelConfig):
-        super().__init__(config)
+        super().__init__(config)  # Base class handles device optimization
         
         self.config = config
         self.sequence_length = config.sequence_length

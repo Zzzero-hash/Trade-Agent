@@ -7,6 +7,11 @@ import torch
 import torch.nn as nn
 from dataclasses import dataclass
 
+try:
+    from utils.device_optimizer import device_optimizer
+except ImportError:
+    from src.utils.device_optimizer import device_optimizer
+
 
 @dataclass
 class ModelConfig:
@@ -94,8 +99,17 @@ class BasePyTorchModel(BaseMLModel, nn.Module):
         BaseMLModel.__init__(self, config)
         nn.Module.__init__(self)
         
-        # Set device
+        # Auto-optimize device based on model type
+        if config.device == "auto":
+            model_type = self.__class__.__name__.lower()
+            config.device = device_optimizer.get_optimal_device(
+                'cnn' if 'cnn' in model_type else
+                'lstm' if 'lstm' in model_type else
+                'hybrid' if 'hybrid' in model_type else 'mlp'
+            )
+        
         self.device = torch.device(config.device)
+        device_optimizer.optimize_torch_settings(config.device)
         
         # Set random seed for reproducibility
         torch.manual_seed(config.random_seed)
