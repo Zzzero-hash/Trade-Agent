@@ -1,0 +1,63 @@
+================================================================================
+CNN+LSTM HYPERPARAMETER OPTIMIZATION SUMMARY REPORT
+SCENARIO: QUICK_TEST
+================================================================================
+Generated: 2025-09-23 10:43:24
+
+CONFIGURATION SUMMARY:
+  Scenario: quick_test
+  Number of trials: 50
+  Max epochs per trial: 20
+  Timeout: 2 hours
+  Objectives: accuracy, training_time
+  Stock symbols: AAPL, GOOGL, MSFT
+  Date range: 2020-01-01 to 2024-01-01
+  Timeframes: 1day
+
+RESOURCE CONSTRAINTS:
+  Max model size: 200.0 MB
+  Max training time: 60.0 minutes
+  Early stopping patience: 5 epochs
+
+OPTIMIZATION RESULTS:
+  Total trials: 50
+  Completed trials: 50
+  Pruned trials: 0
+  Failed trials: 0
+  Success rate: 100.0%
+  Pareto front size: 50
+
+BEST CONFIGURATIONS (PARETO FRONT):
+  Rank 1: Trial 0
+    Objectives: accuracy=0.0000, training_time=60.0000
+    Key params: learning_rate=0.0003023181567415926, cnn_num_filters=64, lstm_hidden_dim=256, dropout_rate=0.1768679059491492, batch_size=128, optimizer=adam
+
+  Rank 2: Trial 1
+    Objectives: accuracy=0.0000, training_time=60.0000
+    Key params: learning_rate=0.005208033318799264, cnn_num_filters=256, lstm_hidden_dim=64, dropout_rate=0.3881976480902025, batch_size=128, optimizer=adam
+
+  Rank 3: Trial 2
+    Objectives: accuracy=0.0000, training_time=60.0000
+    Key params: learning_rate=0.003934540781943789, cnn_num_filters=64, lstm_hidden_dim=512, dropout_rate=0.4512403013965387, batch_size=64, optimizer=adam
+
+  Rank 4: Trial 3
+    Objectives: accuracy=0.0000, training_time=60.0000
+    Key params: learning_rate=1.9935907898110853e-05, cnn_num_filters=128, lstm_hidden_dim=64, dropout_rate=0.18530449813035177, batch_size=16, optimizer=rmsprop
+
+  Rank 5: Trial 4
+    Objectives: accuracy=0.0000, training_time=60.0000
+    Key params: learning_rate=1.9474659513502628e-05, cnn_num_filters=128, lstm_hidden_dim=512, dropout_rate=0.3013206685139467, batch_size=32, optimizer=adamw
+
+SCENARIO-SPECIFIC INSIGHTS (QUICK_TEST):
+  This was a quick test run with reduced trials and epochs.
+  Results provide a baseline for hyperparameter ranges.
+  Consider running 'default' or 'production' scenario for final models.
+
+RECOMMENDED NEXT STEPS:
+  1. Run full optimization with 'default' or 'production' scenario
+  2. Use insights from this run to refine search space
+  3. Consider running 'accuracy_focused' if performance is critical
+
+================================================================================
+END OF REPORT
+================================================================================

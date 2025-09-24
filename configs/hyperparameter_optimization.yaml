@@ -1,0 +1,225 @@
+# Hyperparameter Optimization Configuration - Task 5.5
+# This file contains different optimization scenarios and configurations
+
+# Default configuration for comprehensive optimization
+default:
+  n_trials: 1000
+  max_epochs_per_trial: 50
+  timeout_hours: 48
+  objectives: ['accuracy', 'training_time', 'model_size']
+  retrain_top_k: 3
+  
+  # Data configuration
+  symbols: ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'AMZN', 'META', 'NFLX', 'CRM', 'ADBE']
+  start_date: '2020-01-01'
+  end_date: '2024-01-01'
+  timeframes: ['1min', '5min', '15min']
+  sequence_length: 60
+  batch_size: 32
+  
+  # Resource constraints
+  max_model_size_mb: 500.0
+  max_training_time_minutes: 120.0
+  
+  # Pruning settings
+  pruning_warmup_steps: 10
+  pruning_interval_steps: 5
+  early_stopping_patience: 10
+
+# Quick testing configuration (reduced trials for development)
+quick_test:
+  n_trials: 50
+  max_epochs_per_trial: 20
+  timeout_hours: 2
+  objectives: ['accuracy', 'training_time']
+  retrain_top_k: 2
+  
+  symbols: ['AAPL', 'GOOGL', 'MSFT']
+  start_date: '2020-01-01'
+  end_date: '2024-01-01'
+  timeframes: ['1day']
+  sequence_length: 30
+  batch_size: 16
+  
+  max_model_size_mb: 200.0
+  max_training_time_minutes: 60.0
+  
+  pruning_warmup_steps: 5
+  pruning_interval_steps: 3
+  early_stopping_patience: 5
+
+# Accuracy-focused optimization (prioritizes model performance)
+accuracy_focused:
+  n_trials: 1500
+  max_epochs_per_trial: 100
+  timeout_hours: 72
+  objectives: ['accuracy']  # Single objective
+  retrain_top_k: 5
+  
+  symbols: ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'AMZN', 'META', 'NFLX', 'CRM', 'ADBE', 'ORCL', 'INTC']
+  start_date: '2019-01-01'
+  end_date: '2024-01-01'
+  timeframes: ['1min', '5min', '15min', '1hour']
+  sequence_length: 120
+  batch_size: 64
+  
+  max_model_size_mb: 1000.0  # Allow larger models
+  max_training_time_minutes: 300.0  # Allow longer training
+  
+  pruning_warmup_steps: 20
+  pruning_interval_steps: 10
+  early_stopping_patience: 20
+
+# Efficiency-focused optimization (prioritizes speed and size)
+efficiency_focused:
+  n_trials: 800
+  max_epochs_per_trial: 30
+  timeout_hours: 24
+  objectives: ['training_time', 'model_size', 'accuracy']
+  retrain_top_k: 3
+  
+  symbols: ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA']
+  start_date: '2022-01-01'
+  end_date: '2024-01-01'
+  timeframes: ['5min', '15min']
+  sequence_length: 30
+  batch_size: 32
+  
+  max_model_size_mb: 100.0  # Strict size limit
+  max_training_time_minutes: 30.0  # Strict time limit
+  
+  pruning_warmup_steps: 5
+  pruning_interval_steps: 2
+  early_stopping_patience: 8
+
+# Production-ready optimization (balanced for deployment)
+production:
+  n_trials: 1200
+  max_epochs_per_trial: 75
+  timeout_hours: 60
+  objectives: ['accuracy', 'training_time', 'model_size']
+  retrain_top_k: 5
+  
+  symbols: ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'AMZN', 'META', 'NFLX']
+  start_date: '2020-01-01'
+  end_date: '2024-01-01'
+  timeframes: ['1min', '5min', '15min']
+  sequence_length: 60
+  batch_size: 32
+  
+  max_model_size_mb: 300.0  # Reasonable for production
+  max_training_time_minutes: 90.0  # Reasonable training time
+  
+  pruning_warmup_steps: 15
+  pruning_interval_steps: 5
+  early_stopping_patience: 15
+
+# Advanced search space configurations
+search_spaces:
+  # Conservative search space (proven architectures)
+  conservative:
+    learning_rate:
+      type: 'loguniform'
+      low: 1e-4
+      high: 1e-2
+    cnn_num_filters:
+      type: 'categorical'
+      choices: [64, 128]
+    cnn_filter_sizes:
+      type: 'categorical'
+      choices: [[3, 5, 7], [3, 5, 7, 11]]
+    lstm_hidden_dim:
+      type: 'categorical'
+      choices: [128, 256]
+    lstm_num_layers:
+      type: 'int'
+      low: 2
+      high: 3
+    dropout_rate:
+      type: 'uniform'
+      low: 0.2
+      high: 0.4
+  
+  # Aggressive search space (experimental architectures)
+  aggressive:
+    learning_rate:
+      type: 'loguniform'
+      low: 1e-5
+      high: 5e-2
+    cnn_num_filters:
+      type: 'categorical'
+      choices: [32, 64, 128, 256, 512]
+    cnn_filter_sizes:
+      type: 'categorical'
+      choices: [[2, 3, 5], [3, 5, 7], [3, 7, 11], [5, 11, 15], [3, 5, 7, 11, 15]]
+    lstm_hidden_dim:
+      type: 'categorical'
+      choices: [64, 128, 256, 512, 1024]
+    lstm_num_layers:
+      type: 'int'
+      low: 1
+      high: 5
+    dropout_rate:
+      type: 'uniform'
+      low: 0.1
+      high: 0.6
+    feature_fusion_dim:
+      type: 'categorical'
+      choices: [128, 256, 512, 1024]
+    num_ensemble_models:
+      type: 'int'
+      low: 3
+      high: 10
+
+# Objective weight configurations for multi-objective optimization
+objective_weights:
+  # Balanced weights
+  balanced:
+    accuracy: 0.5
+    training_time: 0.25
+    model_size: 0.25
+  
+  # Performance-focused weights
+  performance_focused:
+    accuracy: 0.8
+    training_time: 0.1
+    model_size: 0.1
+  
+  # Efficiency-focused weights
+  efficiency_focused:
+    accuracy: 0.4
+    training_time: 0.3
+    model_size: 0.3
+  
+  # Production-balanced weights
+  production_balanced:
+    accuracy: 0.6
+    training_time: 0.2
+    model_size: 0.2
+
+# Pruning strategies
+pruning_strategies:
+  # Aggressive pruning (faster optimization)
+  aggressive:
+    pruner_type: 'hyperband'
+    min_resource: 5
+    max_resource: 50
+    reduction_factor: 4
+    warmup_steps: 5
+    interval_steps: 2
+  
+  # Conservative pruning (more thorough evaluation)
+  conservative:
+    pruner_type: 'median'
+    n_startup_trials: 20
+    n_warmup_steps: 15
+    interval_steps: 5
+  
+  # Adaptive pruning (balanced approach)
+  adaptive:
+    pruner_type: 'hyperband'
+    min_resource: 10
+    max_resource: 100
+    reduction_factor: 3
+    warmup_steps: 10
+    interval_steps: 5

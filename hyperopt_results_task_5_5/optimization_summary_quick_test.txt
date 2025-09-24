@@ -1,0 +1,43 @@
+================================================================================
+CNN+LSTM HYPERPARAMETER OPTIMIZATION SUMMARY REPORT
+SCENARIO: QUICK_TEST
+================================================================================
+Generated: 2025-09-23 10:42:31
+
+CONFIGURATION SUMMARY:
+  Scenario: quick_test
+  Number of trials: 50
+  Max epochs per trial: 20
+  Timeout: 2 hours
+  Objectives: accuracy, training_time
+  Stock symbols: AAPL, GOOGL, MSFT
+  Date range: 2020-01-01 to 2024-01-01
+  Timeframes: 1day
+
+RESOURCE CONSTRAINTS:
+  Max model size: 200.0 MB
+  Max training time: 60.0 minutes
+  Early stopping patience: 5 epochs
+
+OPTIMIZATION RESULTS:
+  Total trials: 50
+  Completed trials: 0
+  Pruned trials: 0
+  Failed trials: 50
+  Success rate: 0.0%
+  Pareto front size: 0
+
+BEST CONFIGURATIONS (PARETO FRONT):
+SCENARIO-SPECIFIC INSIGHTS (QUICK_TEST):
+  This was a quick test run with reduced trials and epochs.
+  Results provide a baseline for hyperparameter ranges.
+  Consider running 'default' or 'production' scenario for final models.
+
+RECOMMENDED NEXT STEPS:
+  1. Run full optimization with 'default' or 'production' scenario
+  2. Use insights from this run to refine search space
+  3. Consider running 'accuracy_focused' if performance is critical
+
+================================================================================
+END OF REPORT
+================================================================================

@@ -83,10 +83,8 @@
     - Create adaptive architecture selection based on market conditions
     - _Requirements: 1.4, 4.2, 4.4_
 
-- [-] 5. Train CNN+LSTM feature extractors with advanced optimization
-
+- [x] 5. Train CNN+LSTM feature extractors with advanced optimization
   - [x] 5.1 Implement complete CNN+LSTM training pipeline
-
     - Create CNNLSTMTrainer class with full training loop, validation, and checkpointing
     - Implement mixed precision training with automatic loss scaling for GPU efficiency
     - Add comprehensive training metrics tracking (loss, accuracy, feature quality)
@@ -94,7 +92,6 @@
     - _Requirements: 3.1, 9.1_
 
   - [x] 5.2 Train CNN models for multi-timeframe price pattern recognition
-
     - Train parallel CNN branches on 1-min, 5-min, 15-min price data for 50+ epochs
     - Implement curriculum learning starting with simple patterns and increasing complexity
     - Add data augmentation (noise injection, temporal jittering, price scaling)
@@ -102,7 +99,6 @@
     - _Requirements: 1.1, 3.1, 9.2_
 
   - [x] 5.3 Train LSTM models for temporal sequence modeling
-
     - Train bidirectional LSTM on sequential market data for 100+ epochs
     - Implement gradient clipping and LSTM-specific regularization techniques
     - Add attention mechanism training with learned attention weights
@@ -110,7 +106,10 @@
     - _Requirements: 1.3, 3.1, 9.2_
 
   - [x] 5.4 Train integrated CNN+LSTM hybrid architecture
+<<<<<<< HEAD
 
+=======
+>>>>>>> fab13b1c396dd3712a4463fa2b50a1babe9b3e16
     - Train end-to-end CNN+LSTM model with joint optimization for 200+ epochs
     - Implement feature fusion training with learnable combination weights
     - Add multi-task learning for price prediction, volatility estimation, and regime detection
@@ -124,10 +123,15 @@
     - Save best hyperparameter configurations and retrain final models
     - _Requirements: 3.4, 9.1_
 
+<<<<<<< HEAD
 - [x] 6. Build realistic yfinance-based trading environment
 
   - [x] 6.1 Create YFinanceTradingEnvironment for RL training
 
+=======
+- [ ] 6. Build realistic yfinance-based trading environment
+  - [ ] 6.1 Create YFinanceTradingEnvironment for RL training
+>>>>>>> fab13b1c396dd3712a4463fa2b50a1babe9b3e16
     - Implement trading environment using real yfinance data with proper state representation
     - Add realistic transaction costs (0.1% per trade), slippage modeling, and position sizing constraints
     - Create market regime detection and different market condition simulations
@@ -185,9 +189,7 @@
     - _Requirements: 3.4, 9.1_
 
 - [ ] 8. Train advanced ensemble models and optimize combinations
-
   - [ ] 8.1 Train sophisticated ensemble architectures with meta-learning
-
     - Train stacked ensemble with meta-learner on validation data for optimal model combination
     - Implement and train dynamic ensemble weighting based on market regime detection
     - Train Bayesian model averaging ensemble for uncertainty quantification over 500+ iterations

@@ -37,10 +37,25 @@ gpu-benchmark:
 mlflow-ui:
 	mlflow ui --backend-store-uri sqlite:///mlflow.db
 
+# Experiment Runners
+hyperopt:
+	python experiments/runners/hyperopt_optimization.py
+
+train-cnn:
+	python experiments/runners/train_cnn_multi_timeframe.py
+
+train-lstm:
+	python experiments/runners/train_lstm_temporal.py
+
+train-hybrid:
+	python experiments/runners/train_cnn_lstm.py
+
 clean-experiments:
 	rm -rf mlruns/
 	rm -rf wandb/
 	rm -rf outputs/
+	rm -rf experiments/results/*
+	rm -rf experiments/logs/*
 
 # Data Management
 clean-data:
@@ -81,5 +96,9 @@ help:
 	@echo "  format         - Format code"
 	@echo "  gpu-test       - Test GPU availability"
 	@echo "  mlflow-ui      - Start MLflow UI"
+	@echo "  hyperopt       - Run hyperparameter optimization (Task 5.5)"
+	@echo "  train-cnn      - Run CNN training experiment"
+	@echo "  train-lstm     - Run LSTM training experiment"
+	@echo "  train-hybrid   - Run hybrid CNN+LSTM training"
 	@echo "  clean          - Clean all generated files"
 	@echo "  help           - Show this help message"

@@ -353,7 +353,12 @@ class IntegratedCNNLSTMTrainer:
         highs = sequence_data[:, 1]  # High
         lows = sequence_data[:, 2]   # Low
         price_range = highs - lows
-        price_position = np.where(price_range > 0, (prices - lows) / price_range, 0.5)
+        
+        # Robust price position calculation to avoid division by zero
+        with np.errstate(divide='ignore', invalid='ignore'):
+            price_position = np.divide(prices - lows, price_range, 
+                                     out=np.full_like(prices, 0.5), 
+                                     where=(price_range > 1e-8))
         
         # Combine all features
         enhanced_features = np.column_stack([
@@ -375,12 +380,24 @@ class IntegratedCNNLSTMTrainer:
         return enhanced_features
     
     def _normalize_features(self, features: np.ndarray) -> np.ndarray:
-        """Normalize features using robust scaling"""
+        """Normalize features using robust scaling with proper NaN/inf handling"""
         normalized = features.copy()
         
         for i in range(features.shape[1]):
             col = features[:, i]
-            if np.std(col) > 1e-8:  # Avoid division by zero
+            
+            # Handle NaN and inf values first
+            if np.any(np.isnan(col)) or np.any(np.isinf(col)):
+                finite_mask = np.isfinite(col)
+                if np.any(finite_mask):
+                    median_val = np.median(col[finite_mask])
+                    col = np.where(np.isfinite(col), col, median_val)
+                else:
+                    col = np.zeros_like(col)
+            
+            # Check if column has variation
+            col_std = np.std(col)
+            if col_std > 1e-8:  # Avoid division by zero
                 # Use robust scaling (median and IQR)
                 median = np.median(col)
                 q75, q25 = np.percentile(col, [75, 25])
@@ -389,6 +406,7 @@ class IntegratedCNNLSTMTrainer:
                     normalized[:, i] = (col - median) / iqr
                 else:
                     normalized[:, i] = col - median
+            # If no variation, keep original values (they're already normalized)
         
         return normalized
     
@@ -443,7 +461,8 @@ class IntegratedCNNLSTMTrainer:
         """Create data loaders for multi-task learning"""
         
         # Convert to tensors
-        X_tensor = torch.FloatTensor(X)
+        # X shape: (samples, features, sequence_length) -> (samples, sequence_length, features) for CNN
+        X_tensor = torch.FloatTensor(X).transpose(1, 2)  # Now (samples, sequence_length, features)
         y_price_tensor = torch.FloatTensor(y_price).unsqueeze(1)
         y_volatility_tensor = torch.FloatTensor(y_volatility).unsqueeze(1)
         y_regime_tensor = torch.LongTensor(y_regime)
@@ -1385,18 +1404,18 @@ def main():
         logger.info("\n" + "="*80)
         logger.info("TASK 5.4 COMPLETION SUMMARY")
         logger.info("="*80)
-        logger.info("✓ Trained end-to-end CNN+LSTM model with joint optimization for 200+ epochs")
-        logger.info("✓ Implemented feature fusion training with learnable combination weights")
-        logger.info("✓ Added multi-task learning for price prediction, volatility estimation, and regime detection")
-        logger.info("✓ Validated integrated model performance against individual CNN and LSTM baselines")
-        logger.info(f"✓ Best validation loss: {integrated_results['best_val_loss']:.6f}")
-        logger.info(f"✓ Total epochs trained: {integrated_results['epochs_trained']}")
+        logger.info("[COMPLETED] Trained end-to-end CNN+LSTM model with joint optimization for 200+ epochs")
+        logger.info("[COMPLETED] Implemented feature fusion training with learnable combination weights")
+        logger.info("[COMPLETED] Added multi-task learning for price prediction, volatility estimation, and regime detection")
+        logger.info("[COMPLETED] Validated integrated model performance against individual CNN and LSTM baselines")
+        logger.info(f"[RESULT] Best validation loss: {integrated_results['best_val_loss']:.6f}")
+        logger.info(f"[RESULT] Total epochs trained: {integrated_results['epochs_trained']}")
         
         if 'integrated' in evaluation_results:
             int_results = evaluation_results['integrated']
-            logger.info(f"✓ Final test accuracy: {int_results['classification_accuracy']:.4f}")
-            logger.info(f"✓ Final test MSE: {int_results['regression_mse']:.6f}")
-            logger.info(f"✓ Final test R²: {int_results['regression_r2']:.4f}")
+            logger.info(f"[RESULT] Final test accuracy: {int_results['classification_accuracy']:.4f}")
+            logger.info(f"[RESULT] Final test MSE: {int_results['regression_mse']:.6f}")
+            logger.info(f"[RESULT] Final test R2: {int_results['regression_r2']:.4f}")
         
         logger.info("="*80)
         logger.info("Task 5.4 completed successfully!")
