@@ -109,8 +109,7 @@
     - Validate temporal modeling capability using sequence prediction tasks
     - _Requirements: 1.3, 3.1, 9.2_
 
-  - [ ] 5.4 Train integrated CNN+LSTM hybrid architecture
-
+  - [x] 5.4 Train integrated CNN+LSTM hybrid architecture
 
     - Train end-to-end CNN+LSTM model with joint optimization for 200+ epochs
     - Implement feature fusion training with learnable combination weights
@@ -118,16 +117,16 @@
     - Validate integrated model performance against individual CNN and LSTM baselines
     - _Requirements: 1.4, 3.1, 9.2_
 
-  - [ ] 5.5 Optimize CNN+LSTM hyperparameters with automated search
+  - [x] 5.5 Optimize CNN+LSTM hyperparameters with automated search
     - Implement Optuna-based hyperparameter optimization for learning rates, architectures, regularization
     - Run 1000+ hyperparameter trials with early pruning for efficiency
     - Create multi-objective optimization balancing accuracy, training time, and model size
     - Save best hyperparameter configurations and retrain final models
     - _Requirements: 3.4, 9.1_
 
-- [ ] 6. Build realistic yfinance-based trading environment
+- [x] 6. Build realistic yfinance-based trading environment
 
-  - [ ] 6.1 Create YFinanceTradingEnvironment for RL training
+  - [x] 6.1 Create YFinanceTradingEnvironment for RL training
 
     - Implement trading environment using real yfinance data with proper state representation
     - Add realistic transaction costs (0.1% per trade), slippage modeling, and position sizing constraints
@@ -135,16 +134,18 @@
     - Implement proper action space (buy/sell/hold) with position and cash management
     - _Requirements: 3.1, 5.4_
 
-  - [ ] 6.2 Design comprehensive reward functions and risk metrics
+  - [x] 6.2 Design comprehensive reward functions and risk metrics
+
     - Implement multi-objective rewards combining returns, Sharpe ratio, and maximum drawdown
     - Add risk-adjusted performance metrics (Sortino ratio, Calmar ratio, VaR, CVaR)
     - Create dynamic reward shaping based on market volatility and regime changes
     - Implement portfolio-level constraints and risk management rules (max position size, stop-loss)
     - _Requirements: 3.3, 5.1_
 
-- [ ] 7. Train state-of-the-art RL agents with comprehensive learning
+- [-] 7. Train state-of-the-art RL agents with comprehensive learning
 
-  - [ ] 7.1 Train advanced DQN agent with full Rainbow implementation
+  - [x] 7.1 Train advanced DQN agent with full Rainbow implementation
+
 
     - Implement and train C51 distributional DQN for 2000+ episodes until convergence
     - Train Double DQN, Dueling DQN with prioritized experience replay for stable learning

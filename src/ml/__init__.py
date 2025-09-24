@@ -13,6 +13,16 @@ from .lstm_model import (
 )
 from .feature_engineering import FeatureEngineer
 from .trading_environment import TradingEnvironment, TradingConfig
+from .yfinance_trading_environment import (
+    YFinanceTradingEnvironment, YFinanceConfig, MarketRegime, MarketState,
+    create_yfinance_environment
+)
+from .reward_functions import (
+    RewardType, RewardConfig, BaseRewardFunction, SimpleReturnReward,
+    SharpeRatioReward, SortinoRatioReward, CalmarRatioReward,
+    MultiObjectiveReward, RegimeAdaptiveReward, RiskMetricsCalculator,
+    PortfolioConstraints, RewardFunctionFactory
+)
 from .rl_agents import (
     RLAgentConfig, StableBaselinesRLAgent, RLAgentFactory,
     RLAgentEnsemble, TradingCallback, create_rl_ensemble
@@ -61,6 +71,27 @@ __all__ = [
     # Trading Environment
     'TradingEnvironment',
     'TradingConfig',
+    
+    # YFinance Trading Environment
+    'YFinanceTradingEnvironment',
+    'YFinanceConfig',
+    'MarketRegime',
+    'MarketState',
+    'create_yfinance_environment',
+    
+    # Reward Functions
+    'RewardType',
+    'RewardConfig',
+    'BaseRewardFunction',
+    'SimpleReturnReward',
+    'SharpeRatioReward',
+    'SortinoRatioReward',
+    'CalmarRatioReward',
+    'MultiObjectiveReward',
+    'RegimeAdaptiveReward',
+    'RiskMetricsCalculator',
+    'PortfolioConstraints',
+    'RewardFunctionFactory',
 
     # RL Agents
     'RLAgentConfig',
