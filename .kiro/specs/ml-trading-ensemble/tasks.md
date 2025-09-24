@@ -158,7 +158,6 @@
     - _Requirements: 2.1, 3.1, 9.2_
 
   - [ ] 7.2 Train sophisticated PPO agent with policy optimization
-
     - Train PPO with GAE for 3000+ episodes with parallel environment collection
     - Implement adaptive KL penalty scheduling and entropy regularization during training
     - Add trust region constraints and natural policy gradient training
