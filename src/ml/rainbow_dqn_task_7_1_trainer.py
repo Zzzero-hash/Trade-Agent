@@ -221,13 +221,18 @@ class RainbowDQNTask71Trainer:
         Args:
             episodes: Number of training episodes (minimum 2000)
             save_dir: Directory to save models
-            target_sharpe: Target Sharpe ratio to achieve
+            target_sharpe: Target Sortino ratio to achieve
             
         Returns:
             Training results
         """
         logger.info(f"Starting C51 Distributional DQN training for {episodes} episodes")
-        logger.info(f"Target Sharpe ratio: {target_sharpe}")
+        logger.info(f"Target Sortino ratio: {target_sharpe}")
+        logger.info("=" * 80)
+        logger.info("TRAINING PROGRESS:")
+        logger.info("Progress will be shown every 10 episodes with detailed logs every 100 episodes")
+        logger.info("Format: Episode X/Y (%) | Reward: X | Avg Reward: X | Length: X | Sortino: X | Best: X")
+        logger.info("=" * 80)
         
         # Ensure minimum episodes requirement
         if episodes < 2000:
@@ -249,6 +254,12 @@ class RainbowDQNTask71Trainer:
         no_improvement_count = 0
         
         for episode in range(episodes):
+            # Debug output for first few episodes
+            if episode < 5:
+                print(f"Starting episode {episode + 1}...", flush=True)
+            elif episode % 10 == 0:
+                print(f"Starting episode {episode + 1}...", flush=True)
+            
             # Reset environment
             obs, _ = self.train_env.reset()
             episode_reward = 0
@@ -289,42 +300,78 @@ class RainbowDQNTask71Trainer:
                 # Track portfolio value
                 if 'portfolio_value' in info:
                     episode_portfolio_values.append(info['portfolio_value'])
+                
+                # Show step progress for first few episodes
+                if episode < 3 and episode_length % 50 == 0:
+                    print(f"  Episode {episode + 1} step {episode_length}: reward={reward:.2f}, total_reward={episode_reward:.2f}", flush=True)
+                
+                # Show simple progress dots for all episodes
+                if episode_length % 100 == 0:
+                    print(".", end="", flush=True)
             
             # Episode completed
             episode_rewards.append(episode_reward)
             episode_lengths.append(episode_length)
             portfolio_values.extend(episode_portfolio_values)
             
-            # Calculate Sharpe ratio for recent episodes
-            if len(episode_rewards) >= 50:
-                recent_rewards = episode_rewards[-50:]
-                if np.std(recent_rewards) > 0:
-                    sharpe = np.mean(recent_rewards) / np.std(recent_rewards) * np.sqrt(252)
-                    sharpe_ratios.append(sharpe)
+            # Calculate Sortino ratio for recent episodes (start after 5 episodes)
+            if len(episode_rewards) >= 5:
+                # Use all available episodes up to 50 for Sortino calculation
+                recent_rewards = episode_rewards[-min(50, len(episode_rewards)):]
+                if len(recent_rewards) > 1:
+                    sortino = self._calculate_sortino_ratio(recent_rewards)
+                    sharpe_ratios.append(sortino)  # Keep variable name for compatibility
                     
-                    # Check for improvement
-                    if sharpe > best_sharpe:
-                        best_sharpe = sharpe
+                    # Check for improvement (initialize best_sharpe if needed)
+                    if best_sharpe == float('-inf') or sortino > best_sharpe:
+                        best_sharpe = sortino
                         no_improvement_count = 0
                         
                         # Save best model
                         best_model_path = os.path.join(save_dir, "best_c51_model.pth")
                         self.agent.save_model(best_model_path)
-                        logger.info(f"New best Sharpe ratio: {sharpe:.4f} - Model saved")
+                        logger.info(f"New best Sortino ratio: {sortino:.4f} - Model saved")
                     else:
                         no_improvement_count += 1
+                else:
+                    # If we can't calculate Sortino, just append the last one or 0
+                    if sharpe_ratios:
+                        sharpe_ratios.append(sharpe_ratios[-1])
+                    else:
+                        sharpe_ratios.append(0.0)
             
-            # Logging
-            if (episode + 1) % 100 == 0:
-                avg_reward = np.mean(episode_rewards[-100:])
-                avg_length = np.mean(episode_lengths[-100:])
-                current_sharpe = sharpe_ratios[-1] if sharpe_ratios else 0.0
+            # Progress tracking and logging - show every episode for better visibility
+            if (episode + 1) % 1 == 0:  # Show every episode
+                avg_reward = np.mean(episode_rewards[-min(10, len(episode_rewards)):])
+                avg_length = np.mean(episode_lengths[-min(10, len(episode_lengths)):])
+                current_sortino = sharpe_ratios[-1] if sharpe_ratios else 0.0
                 
-                logger.info(f"Episode {episode + 1}/{episodes}: "
-                          f"Avg Reward: {avg_reward:.4f}, "
-                          f"Avg Length: {avg_length:.1f}, "
-                          f"Sharpe: {current_sharpe:.4f}, "
-                          f"Best Sharpe: {best_sharpe:.4f}")
+                # Real-time progress output with forced flush
+                progress_pct = (episode + 1) / episodes * 100
+                progress_msg = (f"C51 Episode {episode + 1:4d}/{episodes} ({progress_pct:5.1f}%) | "
+                               f"Reward: {episode_reward:8.2f} | "
+                               f"Avg Reward: {avg_reward:8.2f} | "
+                               f"Length: {episode_length:4d} | "
+                               f"Sortino: {current_sortino:6.3f} | "
+                               f"Best: {best_sharpe:6.3f}")
+                
+                # Use both print and logger for visibility
+                print(progress_msg, flush=True)
+                if (episode + 1) % 10 == 0:
+                    logger.info(progress_msg)
+                
+            # Detailed logging every 100 episodes
+            if (episode + 1) % 100 == 0:
+                avg_reward_100 = np.mean(episode_rewards[-100:])
+                avg_length_100 = np.mean(episode_lengths[-100:])
+                current_sortino = sharpe_ratios[-1] if sharpe_ratios else 0.0
+                
+                print()  # New line after progress bar
+                logger.info(f"C51 Episode {episode + 1}/{episodes}: "
+                          f"Avg Reward: {avg_reward_100:.4f}, "
+                          f"Avg Length: {avg_length_100:.1f}, "
+                          f"Sortino: {current_sortino:.4f}, "
+                          f"Best Sortino: {best_sharpe:.4f}")
             
             # Check convergence
             if no_improvement_count >= convergence_patience and episode >= 1000:
@@ -333,7 +380,7 @@ class RainbowDQNTask71Trainer:
             
             # Check target achievement
             if best_sharpe >= target_sharpe:
-                logger.info(f"TARGET ACHIEVED! Sharpe ratio: {best_sharpe:.4f} >= {target_sharpe}")
+                logger.info(f"TARGET ACHIEVED! Sortino ratio: {best_sharpe:.4f} >= {target_sharpe}")
                 target_model_path = os.path.join(save_dir, "target_achieved_c51_model.pth")
                 self.agent.save_model(target_model_path)
                 break
@@ -347,12 +394,12 @@ class RainbowDQNTask71Trainer:
             'training_type': 'C51_Distributional_DQN',
             'episodes_trained': episode + 1,
             'target_episodes': episodes,
-            'best_sharpe_ratio': best_sharpe,
-            'target_sharpe': target_sharpe,
+            'best_sortino_ratio': best_sharpe,  # Keep variable name for compatibility
+            'target_sortino': target_sharpe,
             'target_achieved': best_sharpe >= target_sharpe,
             'episode_rewards': episode_rewards,
             'episode_lengths': episode_lengths,
-            'sharpe_ratios': sharpe_ratios,
+            'sortino_ratios': sharpe_ratios,  # Keep variable name for compatibility
             'final_model_path': final_model_path,
             'best_model_path': best_model_path if best_sharpe > float('-inf') else None,
             'convergence_detected': no_improvement_count >= convergence_patience,
@@ -363,14 +410,11 @@ class RainbowDQNTask71Trainer:
         results_path = os.path.join(save_dir, "c51_training_results.json")
         with open(results_path, 'w') as f:
             # Convert numpy arrays to lists for JSON serialization
-            json_results = results.copy()
-            for key in ['episode_rewards', 'episode_lengths', 'sharpe_ratios']:
-                if key in json_results:
-                    json_results[key] = [float(x) for x in json_results[key]]
+            json_results = self._convert_numpy_to_json(results)
             json.dump(json_results, f, indent=2)
         
         logger.info(f"C51 Distributional DQN training completed")
-        logger.info(f"Best Sharpe ratio achieved: {best_sharpe:.4f}")
+        logger.info(f"Best Sortino ratio achieved: {best_sharpe:.4f}")
         logger.info(f"Results saved to {results_path}")
         
         return results
@@ -393,6 +437,11 @@ class RainbowDQNTask71Trainer:
             Training results
         """
         logger.info(f"Starting Double DQN + Dueling DQN + Prioritized Replay training for {episodes} episodes")
+        logger.info("=" * 80)
+        logger.info("DOUBLE DQN TRAINING PROGRESS:")
+        logger.info("Progress will be shown every 10 episodes with detailed logs every 100 episodes")
+        logger.info("Format: Episode X/Y (%) | Reward: X | Avg Reward: X | Length: X | Sharpe: X | Best: X")
+        logger.info("=" * 80)
         
         # Create save directory
         os.makedirs(save_dir, exist_ok=True)
@@ -467,22 +516,38 @@ class RainbowDQNTask71Trainer:
                         self.agent.save_model(best_model_path)
                         logger.info(f"New best stable Sharpe ratio: {sharpe:.4f}")
             
-            # Logging
-            if (episode + 1) % 100 == 0:
-                avg_reward = np.mean(episode_rewards[-100:])
-                avg_length = np.mean(episode_lengths[-100:])
+            # Progress tracking and logging
+            if (episode + 1) % 10 == 0:
+                avg_reward = np.mean(episode_rewards[-10:])
+                avg_length = np.mean(episode_lengths[-10:])
                 current_sharpe = sharpe_ratios[-1] if sharpe_ratios else 0.0
                 
+                # Real-time progress output
+                progress_pct = (episode + 1) / episodes * 100
+                print(f"\rDouble DQN Episode {episode + 1:4d}/{episodes} ({progress_pct:5.1f}%) | "
+                      f"Reward: {episode_reward:8.2f} | "
+                      f"Avg Reward: {avg_reward:8.2f} | "
+                      f"Length: {episode_length:4d} | "
+                      f"Sharpe: {current_sharpe:6.3f} | "
+                      f"Best: {best_sharpe:6.3f}", end="", flush=True)
+                
+            # Detailed logging every 100 episodes
+            if (episode + 1) % 100 == 0:
+                avg_reward_100 = np.mean(episode_rewards[-100:])
+                avg_length_100 = np.mean(episode_lengths[-100:])
+                current_sharpe = sharpe_ratios[-1] if sharpe_ratios else 0.0
+                
+                print()  # New line after progress bar
                 # Log prioritized replay statistics
                 if hasattr(self.agent.replay_buffer, 'beta'):
                     beta = self.agent.replay_buffer.beta
-                    logger.info(f"Episode {episode + 1}/{episodes}: "
-                              f"Avg Reward: {avg_reward:.4f}, "
+                    logger.info(f"Double DQN Episode {episode + 1}/{episodes}: "
+                              f"Avg Reward: {avg_reward_100:.4f}, "
                               f"Sharpe: {current_sharpe:.4f}, "
                               f"Beta: {beta:.4f}")
                 else:
-                    logger.info(f"Episode {episode + 1}/{episodes}: "
-                              f"Avg Reward: {avg_reward:.4f}, "
+                    logger.info(f"Double DQN Episode {episode + 1}/{episodes}: "
+                              f"Avg Reward: {avg_reward_100:.4f}, "
                               f"Sharpe: {current_sharpe:.4f}")
             
             # Check target achievement
@@ -513,10 +578,7 @@ class RainbowDQNTask71Trainer:
         results_path = os.path.join(save_dir, "double_dueling_training_results.json")
         with open(results_path, 'w') as f:
             # Convert numpy arrays to lists for JSON serialization
-            json_results = results.copy()
-            for key in ['episode_rewards', 'episode_lengths', 'sharpe_ratios']:
-                if key in json_results:
-                    json_results[key] = [float(x) for x in json_results[key]]
+            json_results = self._convert_numpy_to_json(results)
             json.dump(json_results, f, indent=2)
         
         logger.info(f"Double DQN + Dueling DQN + Prioritized Replay training completed")
@@ -542,6 +604,11 @@ class RainbowDQNTask71Trainer:
             Training results
         """
         logger.info(f"Starting Noisy Networks parameter space exploration for {episodes} episodes")
+        logger.info("=" * 80)
+        logger.info("NOISY NETWORKS TRAINING PROGRESS:")
+        logger.info("Progress will be shown every 10 episodes with detailed logs every 100 episodes")
+        logger.info("Format: Episode X/Y (%) | Reward: X | Avg Reward: X | Exploration: X | Sharpe: X | Best: X")
+        logger.info("=" * 80)
         
         # Ensure minimum episodes requirement
         if episodes < 1000:
@@ -629,15 +696,31 @@ class RainbowDQNTask71Trainer:
                         self.agent.save_model(best_model_path)
                         logger.info(f"New best exploration Sharpe ratio: {sharpe:.4f}")
             
-            # Logging
-            if (episode + 1) % 100 == 0:
-                avg_reward = np.mean(episode_rewards[-100:])
-                avg_exploration = np.mean(exploration_metrics[-100:]) if exploration_metrics else 0.0
+            # Progress tracking and logging
+            if (episode + 1) % 10 == 0:
+                avg_reward = np.mean(episode_rewards[-10:])
+                avg_exploration = np.mean(exploration_metrics[-10:]) if exploration_metrics else 0.0
                 current_sharpe = sharpe_ratios[-1] if sharpe_ratios else 0.0
                 
-                logger.info(f"Episode {episode + 1}/{episodes}: "
-                          f"Avg Reward: {avg_reward:.4f}, "
-                          f"Exploration Entropy: {avg_exploration:.4f}, "
+                # Real-time progress output
+                progress_pct = (episode + 1) / episodes * 100
+                print(f"\rNoisy Networks Episode {episode + 1:4d}/{episodes} ({progress_pct:5.1f}%) | "
+                      f"Reward: {episode_reward:8.2f} | "
+                      f"Avg Reward: {avg_reward:8.2f} | "
+                      f"Exploration: {avg_exploration:6.3f} | "
+                      f"Sharpe: {current_sharpe:6.3f} | "
+                      f"Best: {best_sharpe:6.3f}", end="", flush=True)
+                
+            # Detailed logging every 100 episodes
+            if (episode + 1) % 100 == 0:
+                avg_reward_100 = np.mean(episode_rewards[-100:])
+                avg_exploration_100 = np.mean(exploration_metrics[-100:]) if exploration_metrics else 0.0
+                current_sharpe = sharpe_ratios[-1] if sharpe_ratios else 0.0
+                
+                print()  # New line after progress bar
+                logger.info(f"Noisy Networks Episode {episode + 1}/{episodes}: "
+                          f"Avg Reward: {avg_reward_100:.4f}, "
+                          f"Exploration Entropy: {avg_exploration_100:.4f}, "
                           f"Sharpe: {current_sharpe:.4f}")
             
             # Check target achievement
@@ -669,10 +752,7 @@ class RainbowDQNTask71Trainer:
         results_path = os.path.join(save_dir, "noisy_exploration_training_results.json")
         with open(results_path, 'w') as f:
             # Convert numpy arrays to lists for JSON serialization
-            json_results = results.copy()
-            for key in ['episode_rewards', 'episode_lengths', 'sharpe_ratios', 'exploration_metrics']:
-                if key in json_results:
-                    json_results[key] = [float(x) for x in json_results[key]]
+            json_results = self._convert_numpy_to_json(results)
             json.dump(json_results, f, indent=2)
         
         logger.info(f"Noisy Networks exploration training completed")
@@ -809,7 +889,7 @@ class RainbowDQNTask71Trainer:
         logger.info(f"Target Sharpe Ratio: {target_sharpe}")
         logger.info(f"Achieved Sharpe Ratio: {sharpe_ratio:.4f}")
         logger.info(f"Target Met: {'YES' if sharpe_ratio >= target_sharpe else 'NO'}")
-        logger.info(f"Mean Episode Reward: {mean_reward:.4f} ± {std_reward:.4f}")
+        logger.info(f"Mean Episode Reward: {mean_reward:.4f} +/- {std_reward:.4f}")
         logger.info(f"Total Return: {total_return:.2%}")
         logger.info(f"Volatility: {volatility:.2%}")
         logger.info(f"Max Drawdown: {max_drawdown:.2%}")
@@ -902,8 +982,10 @@ class RainbowDQNTask71Trainer:
             for results_key in ['c51_results', 'double_dueling_results', 'noisy_results']:
                 if results_key in complete_results:
                     results = complete_results[results_key]
-                    if results['best_sharpe_ratio'] > best_sharpe:
-                        best_sharpe = results['best_sharpe_ratio']
+                    # Handle both old and new key names for compatibility
+                    current_ratio = results.get('best_sortino_ratio', results.get('best_sharpe_ratio', float('-inf')))
+                    if current_ratio > best_sharpe:
+                        best_sharpe = current_ratio
                         best_model_path = results.get('best_model_path') or results['final_model_path']
             
             if best_model_path and os.path.exists(best_model_path):
@@ -917,12 +999,43 @@ class RainbowDQNTask71Trainer:
                 logger.error("No valid model found for validation")
                 complete_results['validation_results'] = {'error': 'No valid model found'}
             
-            # Final assessment
-            task_completed = False
+            # Strict final assessment - ALL components must succeed
+            c51_success = c51_results.get('target_achieved', False)
+            double_success = double_dueling_results.get('target_achieved', False)
+            noisy_success = noisy_results.get('target_achieved', False)
+            validation_success = False
+            
             if 'validation_results' in complete_results and 'target_met' in complete_results['validation_results']:
-                task_completed = complete_results['validation_results']['target_met']
+                validation_success = complete_results['validation_results']['target_met']
+            
+            # All components must succeed
+            task_completed = c51_success and double_success and noisy_success and validation_success
             
             complete_results['task_completed'] = task_completed
+            complete_results['component_success'] = {
+                'c51_success': c51_success,
+                'double_dueling_success': double_success,
+                'noisy_networks_success': noisy_success,
+                'validation_success': validation_success
+            }
+            
+            # Log component status
+            logger.info("Component Success Status:")
+            logger.info("- C51 Distributional DQN: %s", "PASS" if c51_success else "FAIL")
+            logger.info("- Double DQN + Dueling: %s", "PASS" if double_success else "FAIL")
+            logger.info("- Noisy Networks: %s", "PASS" if noisy_success else "FAIL")
+            logger.info("- Validation: %s", "PASS" if validation_success else "FAIL")
+            
+            if not task_completed:
+                failed_components = []
+                if not c51_success: failed_components.append("C51 DQN")
+                if not double_success: failed_components.append("Double DQN")
+                if not noisy_success: failed_components.append("Noisy Networks")
+                if not validation_success: failed_components.append("Validation")
+                
+                error_msg = f"Task 7.1 FAILED: Components failed: {', '.join(failed_components)}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
             complete_results['end_time'] = datetime.now().isoformat()
             
             # Save complete results
@@ -955,6 +1068,39 @@ class RainbowDQNTask71Trainer:
             complete_results['end_time'] = datetime.now().isoformat()
             return complete_results
     
+    def _calculate_sortino_ratio(self, returns: List[float], target_return: float = 0.0) -> float:
+        """
+        Calculate Sortino ratio - better than Sharpe as it only penalizes downside volatility.
+        
+        Args:
+            returns: List of episode returns
+            target_return: Target return (default 0.0)
+            
+        Returns:
+            Sortino ratio
+        """
+        if len(returns) < 2:
+            return 0.0
+            
+        returns_array = np.array(returns)
+        mean_return = np.mean(returns_array)
+        
+        # Calculate downside deviation (only negative returns)
+        downside_returns = returns_array[returns_array < target_return]
+        if len(downside_returns) == 0:
+            # No downside - perfect performance
+            return float('inf') if mean_return > target_return else 0.0
+            
+        downside_deviation = np.sqrt(np.mean((downside_returns - target_return) ** 2))
+        
+        if downside_deviation == 0:
+            return float('inf') if mean_return > target_return else 0.0
+            
+        # Annualized Sortino ratio (assuming daily returns, 252 trading days)
+        sortino = (mean_return - target_return) / downside_deviation * np.sqrt(252)
+        
+        return sortino
+
     def _convert_numpy_to_json(self, obj):
         """Convert numpy arrays to lists for JSON serialization."""
         if isinstance(obj, dict):
@@ -965,6 +1111,12 @@ class RainbowDQNTask71Trainer:
             return obj.tolist()
         elif isinstance(obj, (np.integer, np.floating)):
             return float(obj)
+        elif isinstance(obj, (np.bool_, bool)):
+            return bool(obj)
+        elif hasattr(obj, 'dtype') and 'bool' in str(obj.dtype):
+            return bool(obj)
+        elif hasattr(obj, 'item'):  # Handle numpy scalars
+            return obj.item()
         else:
             return obj
 

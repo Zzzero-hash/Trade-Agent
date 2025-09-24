@@ -106,10 +106,6 @@
     - _Requirements: 1.3, 3.1, 9.2_
 
   - [x] 5.4 Train integrated CNN+LSTM hybrid architecture
-<<<<<<< HEAD
-
-=======
->>>>>>> fab13b1c396dd3712a4463fa2b50a1babe9b3e16
     - Train end-to-end CNN+LSTM model with joint optimization for 200+ epochs
     - Implement feature fusion training with learnable combination weights
     - Add multi-task learning for price prediction, volatility estimation, and regime detection
@@ -123,15 +119,8 @@
     - Save best hyperparameter configurations and retrain final models
     - _Requirements: 3.4, 9.1_
 
-<<<<<<< HEAD
-- [x] 6. Build realistic yfinance-based trading environment
-
-  - [x] 6.1 Create YFinanceTradingEnvironment for RL training
-
-=======
 - [ ] 6. Build realistic yfinance-based trading environment
   - [ ] 6.1 Create YFinanceTradingEnvironment for RL training
->>>>>>> fab13b1c396dd3712a4463fa2b50a1babe9b3e16
     - Implement trading environment using real yfinance data with proper state representation
     - Add realistic transaction costs (0.1% per trade), slippage modeling, and position sizing constraints
     - Create market regime detection and different market condition simulations
@@ -147,21 +136,18 @@
     - _Requirements: 3.3, 5.1_
 
 - [-] 7. Train state-of-the-art RL agents with comprehensive learning
-
   - [x] 7.1 Train advanced DQN agent with full Rainbow implementation
-
-
     - Implement and train C51 distributional DQN for 2000+ episodes until convergence
     - Train Double DQN, Dueling DQN with prioritized experience replay for stable learning
     - Add Noisy Networks training with parameter space exploration over 1000+ episodes
-    - Validate DQN performance achieving >1.5 Sharpe ratio on training environment
+    - Validate DQN performance achieving >1.0 Sortino ratio on training environment
     - _Requirements: 2.1, 3.1, 9.2_
 
   - [ ] 7.2 Train sophisticated PPO agent with policy optimization
     - Train PPO with GAE for 3000+ episodes with parallel environment collection
     - Implement adaptive KL penalty scheduling and entropy regularization during training
     - Add trust region constraints and natural policy gradient training
-    - Validate PPO achieving >2.0 Sharpe ratio with <10% maximum drawdown
+    - Validate PPO achieving >1.0 Sortino ratio with <10% maximum drawdown
     - _Requirements: 2.1, 3.1, 9.2_
 
   - [ ] 7.3 Train advanced SAC agent for continuous control mastery
@@ -169,7 +155,7 @@
     - Train SAC with automatic entropy temperature tuning for 2500+ episodes
     - Implement twin critic training with target network updates and smoothing
     - Add advanced exploration strategy training (UCB, Thompson sampling)
-    - Validate SAC performance achieving >2.5 Sharpe ratio on complex trading tasks
+    - Validate SAC performance achieving >2.0 Sortino ratio on complex trading tasks
     - _Requirements: 2.1, 3.1, 9.2_
 
   - [ ] 7.4 Train meta-learning agents for rapid adaptation

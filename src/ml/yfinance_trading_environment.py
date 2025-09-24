@@ -47,8 +47,8 @@ class YFinanceConfig:
     slippage_impact: float = 0.0001  # Additional slippage based on position size
     
     # Risk management
-    max_drawdown_limit: float = 0.15  # Max 15% drawdown before episode ends
-    stop_loss_threshold: float = 0.05  # 5% stop loss per position
+    max_drawdown_limit: float = 0.05  # Max 5% drawdown before episode ends
+    stop_loss_threshold: float = 0.03  # 3% stop loss per position
     position_timeout: int = 100  # Max steps to hold a position
     
     # Environment settings
@@ -58,7 +58,7 @@ class YFinanceConfig:
     
     # Reward function parameters
     risk_free_rate: float = 0.02  # Annual risk-free rate
-    reward_scaling: float = 1000.0  # Scale rewards for better learning
+    reward_scaling: float = 10.0  # Scale rewards for better learning
     sharpe_weight: float = 0.3  # Weight for Sharpe ratio in reward
     return_weight: float = 0.4  # Weight for returns in reward
     drawdown_penalty: float = 2.0  # Penalty multiplier for drawdowns
@@ -625,10 +625,17 @@ class YFinanceTradingEnvironment(gym.Env):
                 prices[symbol] = symbol_data['close'].iloc[0]
             else:
                 # Fallback to last known price
-                last_data = self.processed_data[
-                    (self.processed_data.index < self.current_step * self.n_symbols) & 
-                    (self.processed_data['symbol'] == symbol)
-                ]
+                try:
+                    mask = (self.processed_data.index < self.current_step * self.n_symbols) & (self.processed_data['symbol'] == symbol)
+                    last_data = self.processed_data.loc[mask]
+                except Exception:
+                    # If indexing fails, use iloc for safety
+                    symbol_mask = self.processed_data['symbol'] == symbol
+                    symbol_data_all = self.processed_data.loc[symbol_mask]
+                    if len(symbol_data_all) > 0:
+                        last_data = symbol_data_all.iloc[:min(self.current_step, len(symbol_data_all))]
+                    else:
+                        last_data = pd.DataFrame()
                 if not last_data.empty:
                     prices[symbol] = last_data['close'].iloc[-1]
                 else:
@@ -672,7 +679,7 @@ class YFinanceTradingEnvironment(gym.Env):
     
     def _calculate_reward(self, trade_results: List[Dict], current_regime: MarketRegime) -> float:
         """Calculate multi-objective reward with risk adjustment."""
-        # Portfolio return component
+        # Portfolio return component (step-wise return)
         if len(self.portfolio_history) > 0:
             portfolio_return = (self.portfolio_value - self.portfolio_history[-1]) / self.portfolio_history[-1]
         else:
@@ -686,50 +693,56 @@ class YFinanceTradingEnvironment(gym.Env):
             if np.std(excess_returns) > 0:
                 sharpe_component = np.mean(excess_returns) / np.std(excess_returns)
         
-        # Drawdown penalty
+        # Drawdown penalty (much smaller)
         current_drawdown = (self.max_portfolio_value - self.portfolio_value) / self.max_portfolio_value
-        drawdown_penalty = -current_drawdown * self.config.drawdown_penalty
+        drawdown_penalty = -current_drawdown * 0.1  # Reduced from 2.0 to 0.1
         
-        # Transaction cost penalty
-        transaction_penalty = -sum(
-            abs(result['cost']) * self.config.transaction_cost 
-            for result in trade_results if result['executed']
-        ) / max(self.portfolio_value, 1)
+        # Transaction cost penalty (simplified)
+        transaction_penalty = -len([r for r in trade_results if r['executed']]) * 0.01
         
         # Risk management bonus/penalty
         risk_penalty = 0.0
         current_exposure = self._calculate_current_exposure(self._get_current_prices())
         if current_exposure > self.config.max_total_exposure:
-            risk_penalty = -0.1  # Penalty for over-exposure
+            risk_penalty = -0.01  # Small penalty for over-exposure
         
         # Market regime adaptation bonus
         regime_bonus = 0.0
         if current_regime == MarketRegime.HIGH_VOLATILITY and current_exposure < 0.5:
-            regime_bonus = 0.05  # Bonus for reducing exposure in volatile markets
+            regime_bonus = 0.01  # Small bonus for reducing exposure in volatile markets
         elif current_regime == MarketRegime.BULL_MARKET and current_exposure > 0.6:
-            regime_bonus = 0.03  # Bonus for higher exposure in bull markets
+            regime_bonus = 0.005  # Small bonus for higher exposure in bull markets
         
-        # Combine reward components
+        # Very simple reward: just portfolio return with minimal penalties
         reward = (
-            portfolio_return * self.config.return_weight * self.config.reward_scaling +
-            sharpe_component * self.config.sharpe_weight +
-            drawdown_penalty +
-            transaction_penalty +
-            risk_penalty +
-            regime_bonus
+            portfolio_return * 10.0 +   # Reduced scaling from 100 to 10
+            sharpe_component * 0.01 +   # Minimal Sharpe component
+            drawdown_penalty * 0.1 +    # Reduced drawdown penalty
+            transaction_penalty * 0.1   # Reduced transaction penalty
+            # Removed risk and regime bonuses for simplicity
         )
+        
+        # Optional debug logging (disabled for performance)
+        # if self.current_step < 5:
+        #     print(f"Step {self.current_step}: portfolio_return={portfolio_return:.6f}, "
+        #           f"reward_component={portfolio_return * 100.0:.2f}, "
+        #           f"total_reward={reward:.2f}")
         
         return reward
     
     def _is_terminated(self) -> bool:
         """Check termination conditions."""
-        # Maximum drawdown exceeded
+        # Maximum drawdown exceeded (tighter limit)
         current_drawdown = (self.max_portfolio_value - self.portfolio_value) / self.max_portfolio_value
         if current_drawdown > self.config.max_drawdown_limit:
             return True
         
-        # Portfolio value too low
-        if self.portfolio_value < self.config.initial_balance * 0.1:
+        # Portfolio value too low (less strict)
+        if self.portfolio_value < self.config.initial_balance * 0.8:  # Stop at 20% loss
+            return True
+        
+        # Episode too long (prevent infinite episodes)
+        if self.current_step > 500:  # Limit episodes to 500 steps max
             return True
         
         # Check individual position stop losses

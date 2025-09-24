@@ -181,7 +181,7 @@ class BasePyTorchModel(BaseMLModel, nn.Module):
     
     def load_model(self, filepath: str) -> None:
         """Load PyTorch model"""
-        checkpoint = torch.load(filepath, map_location=self.device)
+        checkpoint = torch.load(filepath, map_location=self.device, weights_only=False)
         self.load_state_dict(checkpoint['model_state_dict'])
         self.config = checkpoint['config']
         self.is_trained = checkpoint['is_trained']
