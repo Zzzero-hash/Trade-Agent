@@ -143,7 +143,9 @@
     - _Requirements: 3.3, 5.1_
 
 - [-] 7. Train state-of-the-art RL agents with comprehensive learning
+
   - [x] 7.1 Train advanced DQN agent with full Rainbow implementation
+
     - Implement and train C51 distributional DQN for 2000+ episodes until convergence
     - Train Double DQN, Dueling DQN with prioritized experience replay for stable learning
     - Add Noisy Networks training with parameter space exploration over 1000+ episodes
@@ -151,6 +153,7 @@
     - _Requirements: 2.1, 3.1, 9.2_
 
   - [x] 7.2 Train sophisticated PPO agent with policy optimization
+
     - Train PPO with GAE for 3000+ episodes with parallel environment collection
     - Implement adaptive KL penalty scheduling and entropy regularization during training
     - Add trust region constraints and natural policy gradient training
