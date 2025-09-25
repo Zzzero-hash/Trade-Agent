@@ -43,35 +43,24 @@ logger = logging.getLogger(__name__)
 
 def create_advanced_env_config() -> YFinanceConfig:
     """Create advanced environment configuration for PPO training."""
-    return YFinanceConfig(
-        # Portfolio settings optimized for PPO
-        initial_balance=100000.0,
+    from config.trading_configs import TradingConfigFactory
+    
+    return TradingConfigFactory.create_training_config(
         max_position_size=0.15,  # Conservative position sizing
+        reward_scaling=1.0,      # Reduced reward scaling to prevent overflow
+        # Advanced overrides for PPO
         max_total_exposure=0.75,  # Allow 75% total exposure
-        
-        # Realistic transaction costs
-        transaction_cost=0.001,  # 0.1% per trade
-        slippage_base=0.0005,    # 0.05% base slippage
-        slippage_impact=0.0001,  # Additional impact slippage
-        
-        # Risk management for stable training
+        slippage_base=0.0005,     # 0.05% base slippage
+        slippage_impact=0.0001,   # Additional impact slippage
         max_drawdown_limit=0.08,  # 8% max drawdown before episode ends
         stop_loss_threshold=0.025,  # 2.5% stop loss per position
         position_timeout=120,     # Max 120 steps per position
-        
-        # Environment settings for PPO
-        lookback_window=60,       # 60-period lookback
         prediction_horizon=5,     # 5-step prediction horizon
         min_episode_length=250,   # Minimum 250 steps per episode
-        
-        # Reward function tuned for PPO
         risk_free_rate=0.02,      # 2% annual risk-free rate
-        reward_scaling=1.0,       # Reduced reward scaling to prevent overflow
         sharpe_weight=0.3,        # Balanced Sharpe weight
         return_weight=0.4,        # Balanced return weight
         drawdown_penalty=1.5,     # Moderate drawdown penalty
-        
-        # Market regime detection
         volatility_window=20,
         trend_window=50,
         regime_threshold=0.02
@@ -80,16 +69,20 @@ def create_advanced_env_config() -> YFinanceConfig:
 
 def select_trading_symbols() -> list:
     """Select diverse trading symbols for robust training."""
-    return [
-        # Large cap tech
-        'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'META',
+    from config.trading_configs import get_default_symbols
+    
+    # Extend default symbols with additional diversity
+    base_symbols = get_default_symbols()
+    additional_symbols = [
         # High growth/volatility
-        'TSLA', 'NVDA', 'NFLX',
+        'META', 'NVDA', 'NFLX',
         # Traditional sectors
         'JPM', 'JNJ', 'PG', 'KO',
         # ETFs for diversification
         'SPY', 'QQQ', 'IWM'
     ]
+    
+    return base_symbols + additional_symbols
 
 
 def train_sophisticated_ppo(
@@ -200,23 +193,19 @@ def train_sophisticated_ppo(
         sortino_ratio = final_eval.get('mean_sortino_ratio', 0)
         max_drawdown = final_eval.get('max_drawdown', 1)
         
-        performance_met = sortino_ratio >= 1.0
-        drawdown_met = max_drawdown <= 0.1
+        # Use centralized performance validation
+        from config.trading_configs import validate_performance, format_performance_report
         
-        logger.info("="*80)
+        validation_results = validate_performance(results)
+        performance_report = format_performance_report(validation_results)
+        
         logger.info("TRAINING COMPLETED - PERFORMANCE VALIDATION")
-        logger.info("="*80)
-        logger.info(f"Final Sortino Ratio: {sortino_ratio:.4f} (Target: ≥1.0)")
-        logger.info(f"Maximum Drawdown: {max_drawdown:.4f} (Target: ≤0.1)")
-        logger.info(f"Performance Threshold Met: {'✓' if performance_met else '✗'}")
-        logger.info(f"Drawdown Threshold Met: {'✓' if drawdown_met else '✗'}")
+        logger.info(performance_report)
         
-        if performance_met and drawdown_met:
+        if validation_results['all_targets_met']:
             logger.info("🎉 TASK 7.2 REQUIREMENTS SUCCESSFULLY ACHIEVED!")
         else:
             logger.warning("⚠️  Task requirements not fully met - consider additional training")
-            
-        logger.info("="*80)
         
         # Save comprehensive results
         results_file = os.path.join(log_dir, "task_7_2_results.json")
